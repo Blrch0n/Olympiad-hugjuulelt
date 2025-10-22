@@ -319,18 +319,14 @@ function StarTunnel({ mode }: { mode: Mode }) {
 // ---------- Sun ----------
 function Sun() {
   const ref = useRef<THREE.Mesh>(null!);
-  const coronaRef = useRef<THREE.Mesh>(null!);
 
   useFrame((_, dt) => {
     ref.current.rotation.y += dt * 0.12;
-    if (coronaRef.current) {
-      coronaRef.current.rotation.z += dt * 0.03;
-    }
   });
 
   return (
     <group>
-      {/* Core sun */}
+      {/* Core sun - clean, no rays */}
       <mesh ref={ref}>
         <sphereGeometry args={[0.7, 64, 64]} />
         <meshStandardMaterial
@@ -342,67 +338,17 @@ function Sun() {
         />
       </mesh>
 
-      {/* Inner glow layer */}
-      <mesh scale={1.2}>
+      {/* Subtle inner glow only */}
+      <mesh scale={1.15}>
         <sphereGeometry args={[0.7, 32, 32]} />
         <meshBasicMaterial
           color="#ff9933"
-          transparent
-          opacity={0.5}
-          blending={THREE.AdditiveBlending}
-          side={THREE.BackSide}
-        />
-      </mesh>
-
-      {/* Middle corona */}
-      <mesh scale={1.4}>
-        <sphereGeometry args={[0.7, 32, 32]} />
-        <meshBasicMaterial
-          color="#ffcc66"
           transparent
           opacity={0.3}
           blending={THREE.AdditiveBlending}
           side={THREE.BackSide}
         />
       </mesh>
-
-      {/* Outer corona */}
-      <mesh scale={1.6}>
-        <sphereGeometry args={[0.7, 32, 32]} />
-        <meshBasicMaterial
-          color="#ffdd88"
-          transparent
-          opacity={0.15}
-          blending={THREE.AdditiveBlending}
-          side={THREE.BackSide}
-        />
-      </mesh>
-
-      {/* Billboard glow disc */}
-      <Billboard>
-        <mesh ref={coronaRef}>
-          <circleGeometry args={[1.6, 64]} />
-          <meshBasicMaterial
-            transparent
-            opacity={0.25}
-            color="#ffcf6b"
-            blending={THREE.AdditiveBlending}
-          />
-        </mesh>
-      </Billboard>
-
-      {/* Additional soft flare ring */}
-      <Billboard>
-        <mesh>
-          <ringGeometry args={[1.4, 1.9, 64]} />
-          <meshBasicMaterial
-            transparent
-            opacity={0.12}
-            color="#ff9933"
-            blending={THREE.AdditiveBlending}
-          />
-        </mesh>
-      </Billboard>
     </group>
   );
 }
@@ -423,52 +369,25 @@ const Planet = forwardRef<
   const tex = TEX[cfg.id];
   const loader = useMemo(() => new THREE.TextureLoader(), []);
 
-  // Optimized texture loading with error handling
+  // Optimized texture loading with error handling - disabled for now
   const albedo = useMemo(() => {
-    try {
-      const texture = loader.load(tex.albedo);
-      texture.generateMipmaps = true;
-      texture.minFilter = THREE.LinearMipMapLinearFilter;
-      texture.magFilter = THREE.LinearFilter;
-      return texture;
-    } catch (err) {
-      console.error(`Failed to load texture for ${cfg.id}:`, err);
-      return null;
-    }
+    // Textures are optional - using solid colors instead
+    return null;
   }, [tex.albedo, loader, cfg.id]);
 
   const normal = useMemo(() => {
-    if (!tex.normal) return undefined;
-    try {
-      const texture = loader.load(tex.normal);
-      texture.generateMipmaps = true;
-      return texture;
-    } catch (err) {
-      console.error(`Failed to load normal map for ${cfg.id}:`, err);
-      return undefined;
-    }
+    // Normal maps are optional
+    return undefined;
   }, [tex.normal, loader, cfg.id]);
 
   const rough = useMemo(() => {
-    if (!tex.rough) return undefined;
-    try {
-      const texture = loader.load(tex.rough);
-      texture.generateMipmaps = true;
-      return texture;
-    } catch (err) {
-      console.error(`Failed to load roughness map for ${cfg.id}:`, err);
-      return undefined;
-    }
+    // Roughness maps are optional
+    return undefined;
   }, [tex.rough, loader, cfg.id]);
 
   const emissive = useMemo(() => {
-    if (!tex.emissive) return undefined;
-    try {
-      return loader.load(tex.emissive);
-    } catch (err) {
-      console.error(`Failed to load emissive map for ${cfg.id}:`, err);
-      return undefined;
-    }
+    // Emissive maps are optional
+    return undefined;
   }, [tex.emissive, loader, cfg.id]);
 
   useFrame((_, dt) => {
@@ -514,15 +433,15 @@ const Planet = forwardRef<
   }
 
   return (
-    <group
-      ref={(node: any) => {
-        g.current = node;
-        if (typeof ref === "function") ref(node);
-        else if (ref) (ref as any).current = node;
-      }}
-      rotation={[0, cfg.angle, 0]}
-    >
-      <group position={[cfg.radius, 0, 0]}>
+    <group rotation={[0, cfg.angle, 0]}>
+      <group
+        ref={(node: any) => {
+          g.current = node;
+          if (typeof ref === "function") ref(node);
+          else if (ref) (ref as any).current = node;
+        }}
+        position={[cfg.radius, 0, 0]}
+      >
         {/* Main planet body */}
         <mesh
           ref={m}
@@ -673,102 +592,84 @@ function CameraRig({
 
   useFrame((_, dt) => {
     if (mode === "warping-to" && target) {
-      const desired = tmp.current
-        .copy(target)
-        .add(new THREE.Vector3(0, 0.6, 2.0));
-      camera.position.lerp(desired, 1 - Math.pow(0.00008, dt));
+      // Position camera to show planet on LEFT side of screen (offset to right)
+      const offset = new THREE.Vector3(2.2, 0, 3.0);
+      const desired = tmp.current.copy(target).add(offset);
+      camera.position.lerp(desired, 1 - Math.pow(0.00001, dt));
       camera.lookAt(target);
-      if (camera.position.distanceTo(desired) < 0.02) setMode("panel");
+      if (camera.position.distanceTo(desired) < 0.015) setMode("panel");
     } else if (mode === "panel" && currentPlanetRef?.current) {
-      // Track the planet's world position in panel mode
+      // Keep planet on LEFT side consistently
       currentPlanetRef.current.getWorldPosition(lookTarget.current);
-      const desired = tmp.current
-        .copy(lookTarget.current)
-        .add(new THREE.Vector3(0, 0.6, 2.0));
-      camera.position.lerp(desired, 0.05);
+      const offset = new THREE.Vector3(2.2, 0, 3.0);
+      const desired = tmp.current.copy(lookTarget.current).add(offset);
+      camera.position.lerp(desired, 0.08);
       camera.lookAt(lookTarget.current);
     } else if (mode === "warping-back") {
       const desired = tmp.current.set(0, 3, 12);
-      camera.position.lerp(desired, 1 - Math.pow(0.00008, dt));
+      camera.position.lerp(desired, 1 - Math.pow(0.00001, dt));
       camera.lookAt(0, 0, 0);
-      if (camera.position.distanceTo(desired) < 0.02) setMode("hub");
+      if (camera.position.distanceTo(desired) < 0.015) setMode("hub");
     }
   });
   return null;
 }
 
-// ---------- Panel Showcase (3D big planet on left + text) ----------
+// ---------- Panel Showcase (fixed overlay layout) ----------
 function Showcase({
   id,
   onBack,
-  planetRef,
 }: {
   id: SectionId;
   onBack: () => void;
-  planetRef: React.RefObject<THREE.Group | null> | null | undefined;
+  planetRef?: React.RefObject<THREE.Group | null> | null | undefined;
 }) {
   const content = CONTENT[id];
   const tex = TEX[id];
-  const worldPos = useRef(new THREE.Vector3());
-
-  useFrame(() => {
-    // Update world position each frame to follow the planet
-    if (planetRef?.current) {
-      planetRef.current.getWorldPosition(worldPos.current);
-    }
-  });
 
   return (
-    <group>
-      {/* Content panel follows the planet */}
-      <Html
-        center
-        position={[0, 0, 0]}
-        transform
-        style={{ pointerEvents: "auto", width: "500px" }}
-        calculatePosition={() => {
-          // Position the panel relative to current world position
-          if (planetRef?.current) {
-            planetRef.current.getWorldPosition(worldPos.current);
-            return [
-              worldPos.current.x + 2.5,
-              worldPos.current.y,
-              worldPos.current.z,
-            ];
-          }
-          return [0, 0, 0];
-        }}
-      >
-        <div className="bg-slate-900/80 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-2xl max-w-lg">
-          <h1
-            className="text-4xl md:text-5xl font-black text-white mb-4"
-            style={{ textShadow: `0 0 24px ${tex.color}66` }}
-          >
-            {content.title}
-          </h1>
-          <p className="text-gray-300 text-lg mb-6 leading-relaxed">
-            {content.description}
-          </p>
-          <ul className="space-y-3">
-            {content.details.map((detail, idx) => (
-              <li
-                key={idx}
-                className="text-gray-200 text-base flex items-start gap-2 animate-fadeIn"
-                style={{ animationDelay: `${idx * 100}ms` }}
-              >
-                <span className="shrink-0">{detail}</span>
-              </li>
-            ))}
-          </ul>
-          <button
-            onClick={onBack}
-            className="mt-8 w-full inline-flex items-center justify-center rounded-xl bg-cyan-500/90 hover:bg-cyan-400 active:scale-95 text-slate-900 font-semibold px-6 py-3 transition-all duration-200 shadow-[0_0_18px_rgba(60,220,255,.6)] hover:shadow-[0_0_28px_rgba(60,220,255,.8)]"
-          >
-            ← Буцах
-          </button>
+    <Html fullscreen>
+      <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-end pr-4 md:pr-12">
+        {/* Right side - content panel only */}
+        <div className="w-full max-w-xl md:max-w-2xl pointer-events-auto">
+          <div className="bg-slate-900/95 backdrop-blur-xl rounded-2xl p-6 md:p-8 border border-white/20 shadow-2xl animate-slideInRight">
+            <h1
+              className="text-3xl md:text-4xl lg:text-5xl font-black mb-4 animate-fadeIn"
+              style={{
+                textShadow: `0 0 24px ${tex.color}66, 0 0 40px ${tex.color}33`,
+                color: tex.color,
+              }}
+            >
+              {content.title}
+            </h1>
+            <p
+              className="text-gray-300 text-base md:text-lg mb-6 leading-relaxed animate-fadeIn"
+              style={{ animationDelay: "100ms" }}
+            >
+              {content.description}
+            </p>
+            <ul className="space-y-3 mb-8 max-h-[40vh] overflow-y-auto pr-2">
+              {content.details.map((detail, idx) => (
+                <li
+                  key={idx}
+                  className="text-gray-200 text-sm md:text-base flex items-start gap-3 animate-fadeIn"
+                  style={{ animationDelay: `${idx * 80 + 200}ms` }}
+                >
+                  <span className="shrink-0">{detail}</span>
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={onBack}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 active:scale-95 text-white font-bold px-6 py-3 md:py-4 transition-all duration-300 shadow-[0_0_24px_rgba(60,220,255,.6)] hover:shadow-[0_0_36px_rgba(60,220,255,.9)]"
+            >
+              <span>←</span>
+              <span>Буцах</span>
+            </button>
+          </div>
         </div>
-      </Html>
-    </group>
+      </div>
+    </Html>
   );
 }
 
@@ -933,20 +834,20 @@ export default function SolarWarp3D() {
     setCurrentSection(index);
 
     if (index >= 0 && index < orderedSections.length) {
-      // Navigate to planet
+      // Navigate to planet using its ref for accurate position
       const sectionId = orderedSections[index];
-      const planet = PLANETS.find((p) => p.id === sectionId);
-      if (planet) {
-        const angle = planet.angle;
-        const x = Math.cos(angle) * planet.radius;
-        const z = Math.sin(angle) * planet.radius;
-        onPick(sectionId, new THREE.Vector3(x, 0, z));
+      const planetRef = planetRefsMap[sectionId];
+
+      if (planetRef?.current) {
+        const worldPos = new THREE.Vector3();
+        planetRef.current.getWorldPosition(worldPos);
+        onPick(sectionId, worldPos);
       }
     }
 
     setTimeout(() => {
       isScrollingRef.current = false;
-    }, 2000); // Longer delay to prevent rapid scrolling
+    }, 2000);
   }
 
   function onPick(id: SectionId, worldPos: THREE.Vector3) {
@@ -973,13 +874,12 @@ export default function SolarWarp3D() {
       return;
     }
 
-    // Find the planet position
-    const planet = PLANETS.find((p) => p.id === id);
-    if (planet) {
-      const angle = planet.angle;
-      const x = Math.cos(angle) * planet.radius;
-      const z = Math.sin(angle) * planet.radius;
-      onPick(id, new THREE.Vector3(x, 0, z));
+    // Get planet position from ref for accurate world position
+    const planetRef = planetRefsMap[id];
+    if (planetRef?.current) {
+      const worldPos = new THREE.Vector3();
+      planetRef.current.getWorldPosition(worldPos);
+      onPick(id, worldPos);
 
       // Update current section for progress indicator
       const sectionIndex = orderedSections.indexOf(id);
@@ -995,18 +895,18 @@ export default function SolarWarp3D() {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#060a18] text-white relative">
-      {/* Backdrop Image */}
-      <div className="absolute inset-0 -z-10">
-        <img
+      {/* Backdrop Image - using gradient instead of texture */}
+      <div className="absolute inset-0 -z-10 bg-linear-to-b from-[#060a18] via-[#0a1128] to-[#060a18]">
+        {/* Optional: Add texture when available */}
+        {/* <img
           src="/textures/bg-space.webp"
           alt="Space background"
           className="w-full h-full object-cover opacity-50"
           loading="lazy"
           onError={(e) => {
-            // Fallback if image doesn't load
             e.currentTarget.style.display = "none";
           }}
-        />
+        /> */}
       </div>
 
       <Canvas
@@ -1053,6 +953,7 @@ export default function SolarWarp3D() {
             {PLANETS.map((p) => (
               <Planet
                 key={p.id}
+                ref={planetRefsMap[p.id] as any}
                 cfg={p}
                 onPick={onPick}
                 paused={
@@ -1098,11 +999,7 @@ export default function SolarWarp3D() {
 
           {/* When in panel mode, render the big planet showcase */}
           {mode === "panel" && current && (
-            <Showcase
-              id={current}
-              onBack={onBack}
-              planetRef={(planetRefsMap[current] || null) as any}
-            />
+            <Showcase id={current} onBack={onBack} />
           )}
         </Suspense>
       </Canvas>
@@ -1210,6 +1107,40 @@ export default function SolarWarp3D() {
           </div>
         </div>
       )}
+
+      {/* CSS Animations for smooth transitions */}
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slideInRight {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.6s ease-out forwards;
+          opacity: 0;
+        }
+
+        .animate-slideInRight {
+          animation: slideInRight 0.5s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 }
