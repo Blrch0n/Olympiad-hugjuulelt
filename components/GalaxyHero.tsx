@@ -48,8 +48,7 @@ function Sun() {
 
   return (
     <group>
-      {/* Main sun sphere with texture */}
-      <mesh ref={coreRef}>
+      <mesh scale={1.3} ref={coreRef}>
         <sphereGeometry args={[0.8, 64, 64]} />
         <meshStandardMaterial
           map={sunTexture}
@@ -60,13 +59,12 @@ function Sun() {
         />
       </mesh>
 
-      {/* Sun glow */}
-      <mesh scale={1.3}>
+      <mesh scale={1.5}>
         <sphereGeometry args={[0.8, 32, 32]} />
         <meshBasicMaterial
           color="#ff8800"
           transparent
-          opacity={0.3}
+          opacity={0.03}
           side={THREE.BackSide}
         />
       </mesh>
@@ -142,6 +140,10 @@ const Planet = forwardRef<THREE.Group, PlanetProps>(function Planet(
     if (meshRef.current) {
       meshRef.current.rotation.y += 0.3 * delta;
     }
+
+    if (!paused && groupRef.current) {
+      groupRef.current.rotation.y += cfg.orbitSpeed * delta;
+    }
   });
 
   function handleClick(e: ThreeEvent<MouseEvent>) {
@@ -171,13 +173,12 @@ const Planet = forwardRef<THREE.Group, PlanetProps>(function Planet(
           />
         </mesh>
 
-        {/* Atmospheric glow */}
-        <mesh scale={1.06}>
+        <mesh scale={1.02}>
           <sphereGeometry args={[cfg.size, 32, 32]} />
           <meshBasicMaterial
             color={tex.color}
             transparent
-            opacity={0.15}
+            opacity={0.1}
             side={THREE.BackSide}
           />
         </mesh>
@@ -197,7 +198,62 @@ const Planet = forwardRef<THREE.Group, PlanetProps>(function Planet(
   );
 });
 
-// Camera Rig Component
+/**
+ * Offsets the camera lookAt to frame the target off-center in screen space.
+ * Offsets are in Normalized Device Coordinates: -1..1
+ * (x: left/right, y: down/up)
+ */
+function framedLookAt(
+  cam: THREE.PerspectiveCamera,
+  target: THREE.Vector3,
+  ndcX = +0.35,
+  ndcY = -0.25
+) {
+  // direction from camera to target
+  const dir = new THREE.Vector3().subVectors(target, cam.position).normalize();
+
+  // camera-space basis
+  const right = new THREE.Vector3().crossVectors(dir, cam.up).normalize();
+  const up = new THREE.Vector3().crossVectors(right, dir).normalize();
+
+  // convert NDC offset to world units at the target depth
+  const dist = cam.position.distanceTo(target);
+  const halfH = Math.tan(THREE.MathUtils.degToRad(cam.fov) * 0.5) * dist;
+  const halfW = halfH * cam.aspect;
+
+  const worldOffset = new THREE.Vector3()
+    .addScaledVector(right, ndcX * halfW) // +x moves aim to the right → planet appears left
+    .addScaledVector(up, ndcY * halfH); // -y moves aim downward → planet appears lower
+
+  cam.lookAt(new THREE.Vector3().copy(target).add(worldOffset));
+}
+
+// Get the planet's world-space radius from its mesh (assumes uniform scale)
+function getWorldRadius(mesh: THREE.Mesh) {
+  const geo = mesh.geometry as THREE.BufferGeometry;
+  if (!geo.boundingSphere) geo.computeBoundingSphere();
+  const r = geo.boundingSphere?.radius ?? 1;
+
+  const s = new THREE.Vector3();
+  mesh.getWorldScale(s);
+  return r * Math.max(s.x, s.y, s.z);
+}
+
+// Distance so a sphere of 'radius' fills a fraction of the screen.
+// fill = 0.6 means ~60% of viewport height/width (whichever is tighter).
+function distanceForFrame(
+  radius: number,
+  cam: THREE.PerspectiveCamera,
+  fill = 0.6
+) {
+  const fovY = THREE.MathUtils.degToRad(cam.fov);
+  const fovX = 2 * Math.atan(Math.tan(fovY / 2) * cam.aspect);
+
+  const dY = radius / (fill * Math.tan(fovY / 2));
+  const dX = radius / (fill * Math.tan(fovX / 2));
+  return Math.max(dX, dY); // satisfy both height and width
+}
+
 function CameraRig({
   mode,
   target,
@@ -235,15 +291,42 @@ function CameraRig({
         return; // No target available
       }
 
-      // Position camera to the right and slightly above the planet
-      // This puts the planet on the left side of the screen
-      const desiredPos = tempPos.current
-        .copy(lookTarget.current)
-        .add(new THREE.Vector3(1.8, 0.8, 2.2));
-      camera.position.lerp(desiredPos, lerpSpeed);
-      camera.lookAt(lookTarget.current);
+      const meshRef = currentPlanetRef?.current?.userData?.meshRef;
+      let desiredPos: THREE.Vector3;
 
-      // Check if camera arrived at planet (distance OR time-based fallback)
+      if (meshRef) {
+        meshRef.getWorldPosition(lookTarget.current);
+        const r = getWorldRadius(meshRef);
+        const dist = distanceForFrame(
+          r,
+          camera as THREE.PerspectiveCamera,
+          0.58
+        );
+
+        const az = THREE.MathUtils.degToRad(35); // around Y
+        const el = THREE.MathUtils.degToRad(18); // elevation
+        const dir = new THREE.Vector3().setFromSpherical(
+          new THREE.Spherical(1, Math.PI / 2 - el, az)
+        );
+
+        desiredPos = tempPos.current
+          .copy(lookTarget.current)
+          .addScaledVector(dir, dist + r * 0.15); // pad a bit
+      } else {
+        // Fallback if mesh not available yet
+        desiredPos = tempPos.current
+          .copy(lookTarget.current)
+          .add(new THREE.Vector3(1.2, 1, 2.5));
+      }
+
+      camera.position.lerp(desiredPos, lerpSpeed);
+      framedLookAt(
+        camera as THREE.PerspectiveCamera,
+        lookTarget.current,
+        +0.32,
+        -0.18
+      );
+
       const distance = camera.position.distanceTo(desiredPos);
       const elapsed = state.clock.elapsedTime - (warpStartTime.current ?? 0);
 
@@ -268,17 +351,36 @@ function CameraRig({
       const meshRef = currentPlanetRef.current.userData?.meshRef;
       if (meshRef) {
         meshRef.getWorldPosition(lookTarget.current);
+        const r = getWorldRadius(meshRef);
+        const dist = distanceForFrame(
+          r,
+          camera as THREE.PerspectiveCamera,
+          0.58
+        );
+
+        const az = THREE.MathUtils.degToRad(35);
+        const el = THREE.MathUtils.degToRad(18);
+        const dir = new THREE.Vector3().setFromSpherical(
+          new THREE.Spherical(1, Math.PI / 2 - el, az)
+        );
+
         const desiredPos = tempPos.current
           .copy(lookTarget.current)
-          .add(new THREE.Vector3(1.8, 0.8, 2.2));
+          .addScaledVector(dir, dist + r * 0.15);
+
         camera.position.lerp(desiredPos, 0.05);
-        camera.lookAt(lookTarget.current);
+        framedLookAt(
+          camera as THREE.PerspectiveCamera,
+          lookTarget.current,
+          +0.32,
+          -0.18
+        );
       }
     } else if (mode === "warping-back") {
       initialTarget.current = null; // Reset
       warpStartTime.current = null;
       hasSetPanelMode.current = false;
-      const desiredPos = tempPos.current.set(0, 3, 12);
+      const desiredPos = tempPos.current.set(0, 3, 11);
       camera.position.lerp(desiredPos, lerpSpeed);
       camera.lookAt(0, 0, 0);
 
@@ -809,12 +911,12 @@ export default function GalaxyHero() {
       </div>
 
       <Canvas
-        camera={{ position: [0, 3, 12], fov: 50 }}
+        camera={{ position: [0, 3, 11], fov: 50 }}
         dpr={[1, reducedMotion ? 1 : 1.5]}
         shadows={false}
         gl={{
           antialias: !reducedMotion,
-          alpha: false,
+          alpha: true,
           powerPreference: "high-performance",
           stencil: false,
           depth: true,
@@ -874,29 +976,41 @@ export default function GalaxyHero() {
         <ShowcasePanel id={current} onBack={onBack} />
       )}
 
-      <nav className="absolute right-2 md:right-6 top-2 md:top-5 flex flex-wrap gap-1.5 md:gap-2 text-sm z-10 max-w-[calc(100vw-1rem)] md:max-w-md">
-        {ORDERED_SECTIONS.map((id) => {
-          const data = TEXTURE_CONFIG[id];
-          const isActive = current === id;
-          const isWarping = mode === "warping-to" || mode === "warping-back";
-          return (
-            <button
-              key={id}
-              onClick={() => onNavClick(id)}
-              className={`px-2 md:px-3 py-1.5 md:py-2 rounded-full border transition-all duration-200 text-[10px] md:text-xs font-medium touch-manipulation ${
-                isActive
-                  ? "bg-white/20 border-white/40"
-                  : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
-              } ${isWarping ? "opacity-60" : "cursor-pointer active:scale-95"}`}
-              style={{
-                borderColor: isActive ? data.color : undefined,
-                boxShadow: isActive ? `0 0 16px ${data.color}40` : undefined,
-              }}
-            >
-              {data.label}
-            </button>
-          );
-        })}
+      <nav className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 md:px-6 py-3 md:py-4 bg-linear-to-b from-black/40 via-black/20 to-transparent backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <img
+            src="/textures/syslogo.svg"
+            alt="Logo"
+            className="h-8 md:h-10 w-auto"
+          />
+        </div>
+
+        <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto scrollbar-hide">
+          {ORDERED_SECTIONS.map((id) => {
+            const data = TEXTURE_CONFIG[id];
+            const isActive = current === id;
+            const isWarping = mode === "warping-to" || mode === "warping-back";
+            return (
+              <button
+                key={id}
+                onClick={() => onNavClick(id)}
+                className={`px-2 md:px-3 py-1.5 md:py-2 rounded-full border transition-all duration-200 text-[10px] md:text-xs font-medium touch-manipulation whitespace-nowrap shrink-0 ${
+                  isActive
+                    ? "bg-white/20 border-white/40"
+                    : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
+                } ${
+                  isWarping ? "opacity-60" : "cursor-pointer active:scale-95"
+                }`}
+                style={{
+                  borderColor: isActive ? data.color : undefined,
+                  boxShadow: isActive ? `0 0 16px ${data.color}40` : undefined,
+                }}
+              >
+                {data.label}
+              </button>
+            );
+          })}
+        </div>
       </nav>
 
       <Instructions show={showInstructions && mode === "hub"} />

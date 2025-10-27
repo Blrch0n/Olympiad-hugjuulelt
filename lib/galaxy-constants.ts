@@ -122,13 +122,13 @@ export const TEXTURE_CONFIG: Record<SectionId, TextureConfig> = {
 
 // Planet configurations with proper spacing
 export const PLANET_CONFIGS: PlanetConfig[] = [
-  { id: "about", radius: 2.2, size: 0.35, angle: 0, orbitSpeed: 0.08 },
-  { id: "rules", radius: 3.0, size: 0.38, angle: 1.2, orbitSpeed: 0.06 },
-  { id: "prizes", radius: 3.9, size: 0.42, angle: 2.5, orbitSpeed: 0.045 },
-  { id: "sponsor", radius: 4.9, size: 0.4, angle: 3.8, orbitSpeed: 0.035 },
-  { id: "contact", radius: 5.8, size: 0.36, angle: 5.0, orbitSpeed: 0.028 },
-  { id: "register", radius: 6.8, size: 0.39, angle: 0.8, orbitSpeed: 0.022 },
-  { id: "faq", radius: 7.7, size: 0.37, angle: 2.2, orbitSpeed: 0.018 },
+  { id: "about", radius: 2.2, size: 0.6, angle: 0, orbitSpeed: 0.1 },
+  { id: "rules", radius: 3.0, size: 0.6, angle: 1.2, orbitSpeed: 0.1 },
+  { id: "prizes", radius: 3.9, size: 0.6, angle: 2.5, orbitSpeed: 0.1 },
+  { id: "sponsor", radius: 4.9, size: 0.6, angle: 3.8, orbitSpeed: 0.1 },
+  { id: "contact", radius: 5.8, size: 0.6, angle: 5.0, orbitSpeed: 0.1 },
+  { id: "register", radius: 6.8, size: 0.6, angle: 0.8, orbitSpeed: 0.1 },
+  { id: "faq", radius: 7.7, size: 0.6, angle: 2.2, orbitSpeed: 0.1 },
 ];
 
 // Ordered list for navigation
