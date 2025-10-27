@@ -1,5 +1,5 @@
-import SolarWarp3D from "@/components/GalaxyHero";
+import GalaxyHero from "@/components/GalaxyHero";
 
-export default function Page() {
-  return <SolarWarp3D />;
+export default function Home() {
+  return <GalaxyHero />;
 }
