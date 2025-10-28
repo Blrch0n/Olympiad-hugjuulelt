@@ -1,3 +1,0 @@
-
-# Olympiad-hugjuulelt_
-
