@@ -1,14 +1,11 @@
-import { SectionContent } from "@/lib/galaxy-types";
+import { SectionContent } from "@/app/lib/galaxy-types";
 
-interface RegisterPanelProps {
+interface PrizesPanelProps {
   content: SectionContent;
   onClose: () => void;
 }
 
-export default function RegisterPanel({
-  content,
-  onClose,
-}: RegisterPanelProps) {
+export default function PrizesPanel({ content, onClose }: PrizesPanelProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
@@ -39,7 +36,6 @@ export default function RegisterPanel({
         </button>
       </div>
 
-      {/* Details List */}
       <div className="space-y-4">
         {content.details.map((detail, index) => (
           <div
@@ -51,18 +47,7 @@ export default function RegisterPanel({
         ))}
       </div>
 
-      {/* Custom Content - Add your own sections here */}
-      <div className="mt-8 space-y-4">
-        {/* Example: Add registration form, requirements according to Figma */}
-        {/* <div className="bg-gradient-to-r from-teal-500/20 to-teal-600/20 rounded-lg p-6">
-          <h3 className="text-xl font-semibold text-white mb-2">
-            Registration Form
-          </h3>
-          <form className="space-y-4">
-            Add registration form here
-          </form>
-        </div> */}
-      </div>
+      <div className="mt-8 space-y-4"></div>
     </div>
   );
 }

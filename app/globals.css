@@ -3,6 +3,432 @@
 body {
   margin: 0;
   padding: 0;
+  background: #060a18;
+}
+
+/* Galaxy Background */
+.galaxy-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: #060a18;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Stars layers with glow and animation */
+.stars-layer {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+      circle,
+      rgba(255, 255, 255, 1) 0.5px,
+      rgba(255, 255, 255, 0.5) 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 1) 1px,
+      rgba(255, 255, 255, 0.3) 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.9) 0.5px,
+      rgba(255, 255, 255, 0.4) 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.8) 0.5px,
+      rgba(255, 255, 255, 0.3) 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 1) 1px,
+      rgba(255, 255, 255, 0.4) 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.9) 0.5px,
+      rgba(255, 255, 255, 0.3) 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.7) 0.5px,
+      rgba(255, 255, 255, 0.2) 1px,
+      transparent 2px
+    );
+  background-size: 250px 250px, 350px 350px, 180px 180px, 420px 420px,
+    280px 280px, 380px 380px, 200px 200px;
+  background-position: 0 0, 50px 50px, 30px 80px, 70px 20px, 10px 60px,
+    90px 40px, 40px 10px;
+  background-repeat: repeat;
+  animation: twinkle1 4s ease-in-out infinite, drift1 60s linear infinite;
+}
+
+@keyframes rotateSunRays {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* Shooting stars */
+.stars-layer {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+      circle,
+      rgba(255, 255, 255, 1) 0.5px,
+      rgba(255, 255, 255, 0.5) 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 1) 1px,
+      rgba(255, 255, 255, 0.3) 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.9) 0.5px,
+      rgba(255, 255, 255, 0.4) 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.8) 0.5px,
+      rgba(255, 255, 255, 0.3) 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 1) 1px,
+      rgba(255, 255, 255, 0.4) 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.9) 0.5px,
+      rgba(255, 255, 255, 0.3) 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.7) 0.5px,
+      rgba(255, 255, 255, 0.2) 1px,
+      transparent 2px
+    ),
+    /* Shooting stars */
+      linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.8) 50%,
+        transparent 100%
+      ),
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(200, 220, 255, 0.7) 50%,
+      transparent 100%
+    ),
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.6) 50%,
+      transparent 100%
+    );
+  background-size: 250px 250px, 350px 350px, 180px 180px, 420px 420px,
+    280px 280px, 380px 380px, 200px 200px, 100px 1px, 80px 1px, 120px 1px;
+  background-position: 0 0, 50px 50px, 30px 80px, 70px 20px, 10px 60px,
+    90px 40px, 40px 10px, -200px 20%, -200px 60%, -200px 80%;
+  background-repeat: repeat, repeat, repeat, repeat, repeat, repeat, repeat,
+    no-repeat, no-repeat, no-repeat;
+  animation: twinkle1 4s ease-in-out infinite, drift1 60s linear infinite,
+    shootingStar1 8s linear infinite, shootingStar2 12s linear 4s infinite,
+    shootingStar3 15s linear 7s infinite;
+}
+
+@keyframes shootingStar1 {
+  0% {
+    background-position: 0 0, 50px 50px, 30px 80px, 70px 20px, 10px 60px,
+      90px 40px, 40px 10px, -200px 20%, -200px 60%, -200px 80%;
+  }
+  20% {
+    background-position: 0 0, 50px 50px, 30px 80px, 70px 20px, 10px 60px,
+      90px 40px, 40px 10px, calc(100% + 200px) 25%, -200px 60%, -200px 80%;
+  }
+  20.1%,
+  100% {
+    background-position: 0 0, 50px 50px, 30px 80px, 70px 20px, 10px 60px,
+      90px 40px, 40px 10px, -200px 20%, -200px 60%, -200px 80%;
+  }
+}
+
+@keyframes shootingStar2 {
+  0% {
+    background-position: 0 0, 50px 50px, 30px 80px, 70px 20px, 10px 60px,
+      90px 40px, 40px 10px, -200px 20%, -200px 60%, -200px 80%;
+  }
+  25% {
+    background-position: 0 0, 50px 50px, 30px 80px, 70px 20px, 10px 60px,
+      90px 40px, 40px 10px, -200px 20%, calc(100% + 200px) 65%, -200px 80%;
+  }
+  25.1%,
+  100% {
+    background-position: 0 0, 50px 50px, 30px 80px, 70px 20px, 10px 60px,
+      90px 40px, 40px 10px, -200px 20%, -200px 60%, -200px 80%;
+  }
+}
+
+@keyframes shootingStar3 {
+  0% {
+    background-position: 0 0, 50px 50px, 30px 80px, 70px 20px, 10px 60px,
+      90px 40px, 40px 10px, -200px 20%, -200px 60%, -200px 80%;
+  }
+  18% {
+    background-position: 0 0, 50px 50px, 30px 80px, 70px 20px, 10px 60px,
+      90px 40px, 40px 10px, -200px 20%, -200px 60%, calc(100% + 200px) 75%;
+  }
+  18.1%,
+  100% {
+    background-position: 0 0, 50px 50px, 30px 80px, 70px 20px, 10px 60px,
+      90px 40px, 40px 10px, -200px 20%, -200px 60%, -200px 80%;
+  }
+}
+
+.stars-layer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+      circle,
+      rgba(200, 220, 255, 1) 0.5px,
+      rgba(200, 220, 255, 0.5) 1.5px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.9) 0.5px,
+      rgba(255, 255, 255, 0.4) 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle,
+      rgba(220, 200, 255, 1) 1px,
+      rgba(220, 200, 255, 0.4) 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 240, 200, 0.8) 0.5px,
+      rgba(255, 240, 200, 0.3) 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle,
+      rgba(200, 230, 255, 0.9) 0.5px,
+      rgba(200, 230, 255, 0.4) 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 1) 1px,
+      rgba(255, 255, 255, 0.5) 2px,
+      transparent 3px
+    );
+  background-size: 240px 240px, 300px 300px, 220px 220px, 340px 340px,
+    280px 280px, 400px 400px;
+  background-position: 40px 60px, 180px 140px, 90px 30px, 240px 200px,
+    15px 120px, 300px 40px;
+  background-repeat: repeat;
+  animation: twinkle2 5s ease-in-out infinite, drift2 80s linear infinite;
+  opacity: 0.9;
+}
+
+.stars-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+      circle,
+      rgba(200, 220, 255, 1) 1px,
+      rgba(200, 220, 255, 0.6) 2px,
+      transparent 4px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 200, 220, 0.9) 0.5px,
+      rgba(255, 200, 220, 0.4) 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 1) 1.5px,
+      rgba(255, 255, 255, 0.6) 3px,
+      transparent 5px
+    ),
+    radial-gradient(
+      circle,
+      rgba(180, 200, 255, 0.8) 0.5px,
+      rgba(180, 200, 255, 0.3) 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 220, 200, 0.9) 0.5px,
+      rgba(255, 220, 200, 0.4) 1px,
+      transparent 2px
+    );
+  background-size: 290px 290px, 330px 330px, 210px 210px, 360px 360px,
+    260px 260px;
+  background-position: 110px 90px, 50px 210px, 280px 50px, 140px 180px,
+    330px 160px;
+  background-repeat: repeat;
+  animation: twinkle3 6s ease-in-out infinite, drift3 100s linear infinite;
+  opacity: 0.85;
+}
+
+/* Twinkling animations */
+@keyframes twinkle1 {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes twinkle2 {
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+  33% {
+    opacity: 0.6;
+  }
+  66% {
+    opacity: 0.95;
+  }
+}
+
+@keyframes twinkle3 {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  25% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.9;
+  }
+  75% {
+    opacity: 0.6;
+  }
+}
+
+/* Subtle drift animations */
+@keyframes drift1 {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(-50px, 30px);
+  }
+}
+
+@keyframes drift2 {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(30px, -40px);
+  }
+}
+
+@keyframes drift3 {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(-40px, -30px);
+  }
+}
+
+/* Blue glow top-right - animated nebula effect */
+.glow-blue {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 80% 55% at 72% 10%,
+    rgba(65, 132, 255, 0.45) 0%,
+    rgba(65, 132, 255, 0.25) 30%,
+    rgba(0, 0, 0, 0) 60%
+  );
+  pointer-events: none;
+  animation: nebulaPulse1 8s ease-in-out infinite;
+}
+
+/* Magenta glow bottom-left - animated nebula effect */
+.glow-magenta {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 60% 45% at 10% 88%,
+    rgba(216, 0, 255, 0.25) 0%,
+    rgba(216, 0, 255, 0.12) 30%,
+    rgba(0, 0, 0, 0) 65%
+  );
+  pointer-events: none;
+  animation: nebulaPulse2 10s ease-in-out infinite;
+}
+
+/* Vignette - enhanced depth */
+.vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 120% 85% at 50% 50%,
+    rgba(0, 0, 0, 0) 50%,
+    rgba(0, 0, 0, 0.4) 80%,
+    rgba(0, 0, 0, 0.7) 100%
+  );
+  pointer-events: none;
+}
+
+/* Nebula pulse animations */
+@keyframes nebulaPulse1 {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes nebulaPulse2 {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.03) rotate(2deg);
+  }
 }
 
 /* Fade in animation */
@@ -15,6 +441,10 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.6s ease-out forwards;
 }
 
 .animate-fadeIn {

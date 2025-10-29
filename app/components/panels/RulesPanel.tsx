@@ -1,11 +1,11 @@
-import { SectionContent } from "@/lib/galaxy-types";
+import { SectionContent } from "@/app/lib/galaxy-types";
 
-interface SponsorPanelProps {
+interface RulesPanelProps {
   content: SectionContent;
   onClose: () => void;
 }
 
-export default function SponsorPanel({ content, onClose }: SponsorPanelProps) {
+export default function RulesPanel({ content, onClose }: RulesPanelProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
@@ -36,7 +36,6 @@ export default function SponsorPanel({ content, onClose }: SponsorPanelProps) {
         </button>
       </div>
 
-      {/* Details List */}
       <div className="space-y-4">
         {content.details.map((detail, index) => (
           <div
@@ -48,18 +47,7 @@ export default function SponsorPanel({ content, onClose }: SponsorPanelProps) {
         ))}
       </div>
 
-      {/* Custom Content - Add your own sections here */}
-      <div className="mt-8 space-y-4">
-        {/* Example: Add sponsor logos, partner information according to Figma */}
-        {/* <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-lg p-6">
-          <h3 className="text-xl font-semibold text-white mb-2">
-            Our Partners
-          </h3>
-          <div className="grid grid-cols-3 gap-4">
-            Add sponsor logos here
-          </div>
-        </div> */}
-      </div>
+      <div className="mt-8 space-y-4"></div>
     </div>
   );
 }

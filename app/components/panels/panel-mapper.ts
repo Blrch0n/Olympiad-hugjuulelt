@@ -1,4 +1,4 @@
-import { SectionId } from "@/lib/galaxy-types";
+import { SectionId } from "@/app/lib/galaxy-types";
 import {
   AboutPanel,
   RulesPanel,

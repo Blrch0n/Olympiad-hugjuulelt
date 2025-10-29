@@ -1,4 +1,4 @@
-import { SectionContent } from "@/lib/galaxy-types";
+import { SectionContent } from "@/app/lib/galaxy-types";
 
 interface AboutPanelProps {
   content: SectionContent;
@@ -36,7 +36,6 @@ export default function AboutPanel({ content, onClose }: AboutPanelProps) {
         </button>
       </div>
 
-      {/* Details List */}
       <div className="space-y-4">
         {content.details.map((detail, index) => (
           <div
@@ -48,16 +47,7 @@ export default function AboutPanel({ content, onClose }: AboutPanelProps) {
         ))}
       </div>
 
-      {/* Custom Content - Add your own sections here */}
-      <div className="mt-8 space-y-4">
-        {/* Example: Add custom sections according to Figma */}
-        {/* <div className="bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 rounded-lg p-6">
-          <h3 className="text-xl font-semibold text-white mb-2">
-            Custom Section
-          </h3>
-          <p className="text-gray-300">Add your content here...</p>
-        </div> */}
-      </div>
+      <div className="mt-8 space-y-4"></div>
     </div>
   );
 }

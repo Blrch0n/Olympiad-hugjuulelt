@@ -24,19 +24,60 @@ import {
   PlanetProps,
   CameraRigProps,
   ShowcaseProps,
-} from "@/lib/galaxy-types";
+} from "@/app/lib/galaxy-types";
 import {
   SECTION_CONTENT,
   TEXTURE_CONFIG,
   PLANET_CONFIGS,
   ORDERED_SECTIONS,
   PERFORMANCE,
-} from "@/lib/galaxy-constants";
+} from "@/app/lib/galaxy-constants";
 import { PANEL_COMPONENTS } from "./panels/panel-mapper";
 
 function Sun({ onClick }: { onClick?: () => void }) {
   const coreRef = useRef<THREE.Mesh>(null!);
   const sunTexture = useTexture("/textures/8k_sun.jpg");
+
+  const haloMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        innerColor: { value: new THREE.Color(0xffdc8c) },
+        outerColor: { value: new THREE.Color(0xff8c3c) },
+      },
+      vertexShader: `
+        varying vec3 vPosition;
+        void main() {
+          vPosition = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 innerColor;
+        uniform vec3 outerColor;
+        varying vec3 vPosition;
+        
+        void main() {
+          // Distance from sphere center (0,0,0) normalized by radius
+          float dist = length(vPosition);
+          
+          // Create radial falloff: strong at center (0.0), fade to edges (1.0)
+          float falloff = smoothstep(0.0, 1.0, dist);
+          
+          // Mix colors from inner (center) to outer (edge)
+          vec3 color = mix(innerColor, outerColor, falloff);
+          
+          // Alpha also fades from center to edge
+          float alpha = 0.95 * (1.0 - falloff * falloff);
+          
+          gl_FragColor = vec4(color, alpha);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.BackSide,
+    });
+  }, []);
 
   useFrame((_, delta) => {
     if (coreRef.current) coreRef.current.rotation.y += delta * 0.05;
@@ -62,12 +103,7 @@ function Sun({ onClick }: { onClick?: () => void }) {
 
       <mesh scale={1.5}>
         <sphereGeometry args={[0.8, 32, 32]} />
-        <meshBasicMaterial
-          color="#fff"
-          transparent
-          opacity={0.03}
-          side={THREE.BackSide}
-        />
+        <primitive object={haloMaterial} attach="material" />
       </mesh>
     </group>
   );
@@ -418,12 +454,6 @@ function LoadingScreen({ onComplete }: { onComplete?: () => void }) {
         </div>
         <div className="flex flex-row items-center">
           <p className="text-lg md:text-xl font-semibold">Ачаалж байна...</p>
-          {/* <div className="w-64 md:w-80 h-2 bg-slate-800/50 rounded-full overflow-hidden border border-slate-700/50 backdrop-blur-sm">
-            <div
-              className="h-full bg-linear-to-r from-cyan-500 via-blue-500 to-purple-500 transition-all duration-300 rounded-full"
-              style={{ width: `${progress}%` }}
-            />
-          </div> */}
         </div>
       </div>
     </Html>
@@ -452,13 +482,102 @@ function WebGLNotSupported() {
   );
 }
 
+function TopBar({
+  current,
+  mode,
+  onBack,
+  onNavClick,
+}: {
+  current: SectionId | null;
+  mode: Mode;
+  onBack: () => void;
+  onNavClick: (id: SectionId) => void;
+}) {
+  const isBusy = mode === "warping-to" || mode === "warping-back";
+
+  return (
+    <nav className="fixed top-0 left-0 right-0 z-30 pointer-events-none">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-linear-to-b from-black/50 via-black/20 to-transparent" />
+
+      <div className="relative mx-auto max-w-7xl px-4 md:px-6">
+        <div className="flex items-center justify-between py-4 pointer-events-auto">
+          <button
+            className="shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={onBack}
+          >
+            <img
+              src="/textures/syslogo.svg"
+              alt="Logo"
+              className="h-8 md:h-16 w-auto"
+            />
+          </button>
+
+          <ul className="hidden md:flex items-center gap-6 lg:gap-8 ml-auto">
+            {ORDERED_SECTIONS.map((id) => {
+              const label = TEXTURE_CONFIG[id].label;
+              const active = current === id;
+
+              return (
+                <li key={id}>
+                  <button
+                    onClick={() => onNavClick(id)}
+                    disabled={isBusy}
+                    className={`relative cursor-pointer text-sm font-semibold tracking-wider uppercase transition-all duration-200 group ${
+                      active
+                        ? "text-cyan-400"
+                        : "text-white/70 hover:text-white"
+                    } ${isBusy ? "opacity-50 cursor-not-allowed" : ""}`}
+                  >
+                    {label}
+                    <span
+                      className={`absolute left-0 right-0 -bottom-1 h-0.5 bg-cyan-400 rounded-full transition-all duration-200 ${
+                        active
+                          ? "opacity-100 shadow-[0_0_8px_rgba(34,211,238,0.6)]"
+                          : "opacity-0 scale-x-0 group-hover:opacity-100 group-hover:scale-x-100"
+                      }`}
+                    />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="md:hidden flex-1 ml-4 overflow-x-auto scrollbar-hide">
+            <div className="flex items-center gap-4">
+              {ORDERED_SECTIONS.map((id) => {
+                const label = TEXTURE_CONFIG[id].label;
+                const active = current === id;
+
+                return (
+                  <button
+                    key={id}
+                    onClick={() => onNavClick(id)}
+                    disabled={isBusy}
+                    className={`text-xs font-semibold uppercase tracking-wide whitespace-nowrap transition-colors ${
+                      active
+                        ? "text-cyan-400"
+                        : "text-white/70 hover:text-white"
+                    } ${isBusy ? "opacity-50" : ""}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
 export default function GalaxyHero() {
   const [mode, setMode] = useState<Mode>("hub");
   const [current, setCurrent] = useState<SectionId | null>(null);
   const [target, setTarget] = useState<THREE.Vector3 | null>(null);
   const [webglSupported, setWebglSupported] = useState(true);
   const [reducedMotion, setReducedMotion] = useState(false);
-  const [currentSection, setCurrentSection] = useState(0);
+  const [currentSection, setCurrentSection] = useState(-1);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const isScrollingRef = useRef(false);
@@ -539,7 +658,7 @@ export default function GalaxyHero() {
     setCurrent(null);
     setTarget(null);
     setMode("warping-back");
-    setCurrentSection(0);
+    setCurrentSection(-1);
   }, []);
 
   const navigateToSection = React.useCallback(
@@ -548,13 +667,9 @@ export default function GalaxyHero() {
       console.log("isScrollingRef.current:", isScrollingRef.current);
       console.log("Current mode:", mode);
 
-      if (isScrollingRef.current && mode !== "panel") {
+      if (isScrollingRef.current) {
         console.log("Blocked - already scrolling");
         return;
-      }
-
-      if (mode === "panel") {
-        isScrollingRef.current = false;
       }
 
       isScrollingRef.current = true;
@@ -576,16 +691,18 @@ export default function GalaxyHero() {
             onPick(sectionId, pos);
           } else {
             console.error("No meshRef for section:", sectionId);
+            isScrollingRef.current = false;
           }
         } else {
           console.error("No planet ref for section:", sectionId);
+          isScrollingRef.current = false;
         }
       }
 
       setTimeout(() => {
         isScrollingRef.current = false;
         console.log("Scroll lock released");
-      }, 800);
+      }, 1200);
     },
     [onPick, planetRefsMap, mode]
   );
@@ -667,13 +784,21 @@ export default function GalaxyHero() {
       if (e.key === "Escape" && mode === "panel") onBack();
       if (e.key === "ArrowDown" && !isScrollingRef.current) {
         e.preventDefault();
-        navigateToSection(
-          Math.min(currentSection + 1, ORDERED_SECTIONS.length - 1)
-        );
+        if (currentSection < ORDERED_SECTIONS.length - 1) {
+          navigateToSection(
+            Math.min(currentSection + 1, ORDERED_SECTIONS.length - 1)
+          );
+        } else {
+          onBack();
+        }
       }
       if (e.key === "ArrowUp" && !isScrollingRef.current) {
         e.preventDefault();
-        navigateToSection(Math.max(currentSection - 1, 0));
+        if (currentSection > 0) {
+          navigateToSection(Math.max(currentSection - 1, 0));
+        } else {
+          onBack();
+        }
       }
     };
 
@@ -709,10 +834,6 @@ export default function GalaxyHero() {
         return;
       }
 
-      if (mode === "panel") {
-        return;
-      }
-
       if (Math.abs(e.deltaY) < PERFORMANCE.SCROLL_THRESHOLD) {
         console.log(
           "Scroll too small, threshold:",
@@ -726,9 +847,22 @@ export default function GalaxyHero() {
       if (e.deltaY > 0 && currentSection < ORDERED_SECTIONS.length - 1) {
         console.log("Scrolling DOWN to section:", currentSection + 1);
         navigateToSection(currentSection + 1);
-      } else if (e.deltaY < 0 && currentSection > 0) {
+      } else if (e.deltaY < 0 && currentSection > -1) {
         console.log("Scrolling UP to section:", currentSection - 1);
-        navigateToSection(currentSection - 1);
+        if (currentSection === -1 || currentSection === 0) {
+          console.log(
+            "Already at hub view or first planet - going back to hub"
+          );
+          onBack();
+        } else {
+          navigateToSection(currentSection - 1);
+        }
+      } else if (
+        e.deltaY > 0 &&
+        currentSection === ORDERED_SECTIONS.length - 1
+      ) {
+        console.log("At last planet - going back to hub");
+        onBack();
       } else {
         console.log(
           "At boundary - deltaY:",
@@ -790,12 +924,6 @@ export default function GalaxyHero() {
         return;
       }
 
-      if (mode === "panel") {
-        touchStartYRef.current = null;
-        touchStartTimeRef.current = null;
-        return;
-      }
-
       const touchEndY = e.changedTouches[0].clientY;
       const deltaY = touchStartYRef.current - touchEndY;
       const deltaTime = Date.now() - touchStartTimeRef.current;
@@ -810,9 +938,22 @@ export default function GalaxyHero() {
         if (deltaY > 0 && currentSection < ORDERED_SECTIONS.length - 1) {
           console.log("Swipe UP - going to next planet");
           navigateToSection(currentSection + 1);
-        } else if (deltaY < 0 && currentSection > 0) {
-          console.log("Swipe DOWN - going to previous planet");
-          navigateToSection(currentSection - 1);
+        } else if (
+          deltaY > 0 &&
+          currentSection === ORDERED_SECTIONS.length - 1
+        ) {
+          console.log("At last planet - going back to hub");
+          onBack();
+        } else if (deltaY < 0 && currentSection > -1) {
+          console.log("Swipe DOWN - going to previous planet or hub");
+          if (currentSection === -1 || currentSection === 0) {
+            console.log(
+              "Already at hub view or first planet - going back to hub"
+            );
+            onBack();
+          } else {
+            navigateToSection(currentSection - 1);
+          }
         }
       }
 
@@ -834,130 +975,98 @@ export default function GalaxyHero() {
   if (!webglSupported) return <WebGLNotSupported />;
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#060a18] text-white relative">
-      <div className="absolute inset-0 -z-10">
-        <img
-          src="/textures/8k_stars_milky_way.jpg"
-          alt="Milky Way stars background"
-          className="w-full h-full object-cover "
-          loading="eager"
-          onError={(e) => {
-            console.error("Failed to load background image");
-            e.currentTarget.style.display = "none";
-          }}
-        />
+    <div className="h-screen w-screen overflow-hidden text-white relative">
+      <div className="galaxy-bg">
+        <div className="stars-layer" />
+        <div className="glow-blue" />
+        <div className="glow-magenta" />
+        <div className="vignette" />
       </div>
 
-      <Canvas
-        camera={{ position: [0, 3, 11], fov: 50 }}
-        dpr={[1, reducedMotion ? 1 : 1.5]}
-        shadows={false}
-        gl={{
-          antialias: !reducedMotion,
-          alpha: true,
-          powerPreference: "high-performance",
-          stencil: false,
-          depth: true,
-        }}
-        frameloop="always"
-        performance={{ min: 0.5 }}
-      >
-        <Suspense
-          fallback={
-            <LoadingScreen
-              onComplete={() => {
-                console.log("LoadingScreen onComplete called!");
-                setIsLoaded(true);
-                setIsLoading(false);
-              }}
-            />
-          }
+      <div className="absolute inset-0" style={{ zIndex: 1 }}>
+        <Canvas
+          camera={{ position: [0, 3, 11], fov: 50 }}
+          dpr={[1, reducedMotion ? 1 : 1.5]}
+          shadows={false}
+          gl={{
+            antialias: !reducedMotion,
+            alpha: true,
+            powerPreference: "high-performance",
+            stencil: false,
+            depth: true,
+          }}
+          onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}
+          frameloop="always"
+          performance={{ min: 0.5 }}
         >
-          <ambientLight intensity={0.2} color="#b8d4ff" />
-          <directionalLight
-            position={[8, 5, 5]}
-            intensity={1.5}
-            color="#ffffff"
-          />
-          <directionalLight
-            position={[-4, 3, -3]}
-            intensity={0.3}
-            color="#4080ff"
-          />
-          <pointLight
-            position={[0, 0, 0]}
-            intensity={1.2}
-            color="#ffcf6b"
-            distance={15}
-            decay={2}
-          />
-          <group>
-            <Sun onClick={onBack} />
-            <OrbitRings />
-            {PLANET_CONFIGS.map((p) => (
-              <Planet
-                key={p.id}
-                ref={planetRefsMap[p.id] as any}
-                cfg={p}
-                onPick={onPick}
-                paused={mode !== "hub"}
+          <Suspense
+            fallback={
+              <LoadingScreen
+                onComplete={() => {
+                  console.log("LoadingScreen onComplete called!");
+                  setIsLoaded(true);
+                  setIsLoading(false);
+                }}
               />
-            ))}
-          </group>
-          <EffectComposer>
-            <Bloom intensity={0.5} luminanceThreshold={0.2} />
-            <Vignette eskil={false} offset={0.1} darkness={0.5} />
-          </EffectComposer>
-          <CameraRig
-            mode={mode}
-            target={target}
-            setMode={setMode}
-            currentPlanetRef={(current ? planetRefsMap[current] : null) as any}
-          />
-        </Suspense>
-      </Canvas>
+            }
+          >
+            <ambientLight intensity={0.3} color="#b8d4ff" />
+
+            <pointLight
+              position={[0, 0, 0]}
+              intensity={10}
+              color="#ffcf6b"
+              distance={30}
+              decay={1.5}
+            />
+
+            <pointLight
+              position={[0, 0, 0]}
+              intensity={10}
+              color="#ffa940"
+              distance={35}
+              decay={1.3}
+            />
+
+            <group>
+              <Sun onClick={onBack} />
+              <OrbitRings />
+              {PLANET_CONFIGS.map((p) => (
+                <Planet
+                  key={p.id}
+                  ref={planetRefsMap[p.id] as any}
+                  cfg={p}
+                  onPick={onPick}
+                  paused={mode !== "hub"}
+                />
+              ))}
+            </group>
+            <EffectComposer autoClear={false}>
+              <Bloom intensity={0.5} luminanceThreshold={0.2} />
+              <Vignette eskil={false} offset={0.1} darkness={0.5} />
+            </EffectComposer>
+            <CameraRig
+              mode={mode}
+              target={target}
+              setMode={setMode}
+              currentPlanetRef={
+                (current ? planetRefsMap[current] : null) as any
+              }
+            />
+          </Suspense>
+        </Canvas>
+      </div>
 
       {mode === "panel" && current && (
         <ShowcasePanel id={current} onBack={onBack} />
       )}
 
-      <nav className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 md:px-6 py-3 md:py-4 bg-linear-to-b from-black/40 via-black/20 to-transparent backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <img
-            src="/textures/syslogo.svg"
-            alt="Logo"
-            className="h-8 md:h-10 w-auto cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={onBack}
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto scrollbar-hide">
-          {ORDERED_SECTIONS.map((id) => {
-            const data = TEXTURE_CONFIG[id];
-            const isActive = current === id;
-            const isWarping = mode === "warping-to" || mode === "warping-back";
-            return (
-              <button
-                key={id}
-                onClick={() => onNavClick(id)}
-                className={`px-2 md:px-3 py-1.5 md:py-2 rounded-full border transition-all duration-200 text-[10px] md:text-xs font-medium touch-manipulation whitespace-nowrap shrink-0 ${
-                  isActive
-                    ? "bg-white/20 border-white/40"
-                    : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
-                } ${
-                  isWarping ? "opacity-60" : "cursor-pointer active:scale-95"
-                }`}
-                style={{
-                  borderColor: isActive ? data.color : undefined,
-                  boxShadow: isActive ? `0 0 16px ${data.color}40` : undefined,
-                }}
-              >
-                {data.label}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      <TopBar
+        current={current}
+        mode={mode}
+        onBack={onBack}
+        onNavClick={onNavClick}
+      />
 
       {false && (
         <div className="absolute top-20 left-4 bg-black/80 text-white p-4 rounded-lg text-xs font-mono z-50">
@@ -1022,7 +1131,7 @@ export default function GalaxyHero() {
       )}
 
       {isLoaded && (
-        <div className="absolute bottom-6 md:bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 md:gap-3">
+        <div className="absolute z-30 bottom-6 md:bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 md:gap-3">
           <div className="flex items-center gap-1.5 md:gap-2 bg-slate-900/70 px-3 md:px-4 py-2 md:py-3 rounded-full backdrop-blur-sm border border-white/10">
             {ORDERED_SECTIONS.map((section, index) => {
               const planet = TEXTURE_CONFIG[section];
@@ -1052,7 +1161,12 @@ export default function GalaxyHero() {
                     }`}
                     style={{
                       backgroundColor: planet.color,
-                      opacity: isPast ? 0.6 : isActive ? 1 : 0.3,
+                      opacity:
+                        isPast || currentSection === -1
+                          ? 0.6
+                          : isActive
+                          ? 1
+                          : 0.3,
                       boxShadow: isActive
                         ? `0 0 8px ${planet.color}, 0 0 16px ${planet.color}40`
                         : "none",
@@ -1108,6 +1222,17 @@ export default function GalaxyHero() {
           )}
         </div>
       )}
+
+      <style jsx global>{`
+        /* hide horizontal scrollbar for the mobile row, without breaking accessibility */
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </div>
   );
 }

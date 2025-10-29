@@ -1,11 +1,11 @@
-import { SectionContent } from "@/lib/galaxy-types";
+import { SectionContent } from "@/app/lib/galaxy-types";
 
-interface ContactPanelProps {
+interface SponsorPanelProps {
   content: SectionContent;
   onClose: () => void;
 }
 
-export default function ContactPanel({ content, onClose }: ContactPanelProps) {
+export default function SponsorPanel({ content, onClose }: SponsorPanelProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
@@ -36,7 +36,6 @@ export default function ContactPanel({ content, onClose }: ContactPanelProps) {
         </button>
       </div>
 
-      {/* Details List */}
       <div className="space-y-4">
         {content.details.map((detail, index) => (
           <div
@@ -48,16 +47,7 @@ export default function ContactPanel({ content, onClose }: ContactPanelProps) {
         ))}
       </div>
 
-      {/* Custom Content - Add your own sections here */}
-      <div className="mt-8 space-y-4">
-        {/* Example: Add contact form, social media links according to Figma */}
-        <div className="bg-gradient-to-r from-violet-500/20 to-violet-600/20 rounded-lg p-6">
-          <h3 className="text-xl font-semibold text-white mb-2">
-            Send us a message
-          </h3>
-          <form className="space-y-4">Add contact form here</form>
-        </div>
-      </div>
+      <div className="mt-8 space-y-4"></div>
     </div>
   );
 }

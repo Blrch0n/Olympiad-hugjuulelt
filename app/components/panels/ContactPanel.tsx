@@ -1,11 +1,11 @@
-import { SectionContent } from "@/lib/galaxy-types";
+import { SectionContent } from "@/app/lib/galaxy-types";
 
-interface PrizesPanelProps {
+interface ContactPanelProps {
   content: SectionContent;
   onClose: () => void;
 }
 
-export default function PrizesPanel({ content, onClose }: PrizesPanelProps) {
+export default function ContactPanel({ content, onClose }: ContactPanelProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
@@ -36,7 +36,6 @@ export default function PrizesPanel({ content, onClose }: PrizesPanelProps) {
         </button>
       </div>
 
-      {/* Details List */}
       <div className="space-y-4">
         {content.details.map((detail, index) => (
           <div
@@ -48,15 +47,13 @@ export default function PrizesPanel({ content, onClose }: PrizesPanelProps) {
         ))}
       </div>
 
-      {/* Custom Content - Add your own sections here */}
       <div className="mt-8 space-y-4">
-        {/* Example: Add prize breakdown, rewards visualization according to Figma */}
-        {/* <div className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 rounded-lg p-6">
+        <div className="bg-gradient-to-r from-violet-500/20 to-violet-600/20 rounded-lg p-6">
           <h3 className="text-xl font-semibold text-white mb-2">
-            Additional Rewards
+            Send us a message
           </h3>
-          <p className="text-gray-300">Add your content here...</p>
-        </div> */}
+          <form className="space-y-4">Add contact form here</form>
+        </div>
       </div>
     </div>
   );
