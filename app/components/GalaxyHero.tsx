@@ -1,575 +1,22 @@
 "use client";
 
-import React, {
-  useMemo,
-  useRef,
-  useState,
-  useEffect,
-  forwardRef,
-  Suspense,
-} from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import * as THREE from "three";
-import { Canvas, useFrame, ThreeEvent, useThree } from "@react-three/fiber";
+import { useTexture } from "@react-three/drei";
+import { SectionId, Mode } from "@/app/lib/galaxy-types";
 import {
-  Html,
-  Line,
-  Billboard,
-  useProgress,
-  useTexture,
-} from "@react-three/drei";
-import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
-import {
-  SectionId,
-  Mode,
-  PlanetProps,
-  CameraRigProps,
-  ShowcaseProps,
-} from "@/app/lib/galaxy-types";
-import {
-  SECTION_CONTENT,
-  TEXTURE_CONFIG,
   PLANET_CONFIGS,
   ORDERED_SECTIONS,
+  TEXTURE_CONFIG,
   PERFORMANCE,
 } from "@/app/lib/galaxy-constants";
-import { PANEL_COMPONENTS } from "./panels/panel-mapper";
-
-function Sun({ onClick }: { onClick?: () => void }) {
-  const coreRef = useRef<THREE.Mesh>(null!);
-  const sunTexture = useTexture("/textures/8k_sun.jpg");
-
-  const haloMaterial = useMemo(() => {
-    return new THREE.ShaderMaterial({
-      uniforms: {
-        innerColor: { value: new THREE.Color(0xffdc8c) },
-        outerColor: { value: new THREE.Color(0xff8c3c) },
-      },
-      vertexShader: `
-        varying vec3 vPosition;
-        void main() {
-          vPosition = position;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 innerColor;
-        uniform vec3 outerColor;
-        varying vec3 vPosition;
-        
-        void main() {
-          // Distance from sphere center (0,0,0) normalized by radius
-          float dist = length(vPosition);
-          
-          // Create radial falloff: strong at center (0.0), fade to edges (1.0)
-          float falloff = smoothstep(0.0, 1.0, dist);
-          
-          // Mix colors from inner (center) to outer (edge)
-          vec3 color = mix(innerColor, outerColor, falloff);
-          
-          // Alpha also fades from center to edge
-          float alpha = 0.95 * (1.0 - falloff * falloff);
-          
-          gl_FragColor = vec4(color, alpha);
-        }
-      `,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      side: THREE.BackSide,
-    });
-  }, []);
-
-  useFrame((_, delta) => {
-    if (coreRef.current) coreRef.current.rotation.y += delta * 0.05;
-  });
-
-  const handleClick = (e: ThreeEvent<MouseEvent>) => {
-    e.stopPropagation();
-    if (onClick) onClick();
-  };
-
-  return (
-    <group onClick={handleClick}>
-      <mesh scale={1.3} ref={coreRef}>
-        <sphereGeometry args={[0.8, 64, 64]} />
-        <meshStandardMaterial
-          map={sunTexture}
-          emissive="#ffaa00"
-          emissiveIntensity={1.5}
-          emissiveMap={sunTexture}
-          toneMapped={false}
-        />
-      </mesh>
-
-      <mesh scale={1.5}>
-        <sphereGeometry args={[0.8, 32, 32]} />
-        <primitive object={haloMaterial} attach="material" />
-      </mesh>
-    </group>
-  );
-}
-
-function OrbitRings() {
-  const radii = [2.2, 3.0, 3.9, 4.9, 5.8, 6.8, 7.7];
-  return (
-    <group rotation={[0, 0, 0]}>
-      {radii.map((r) => {
-        const points = new THREE.EllipseCurve(
-          0,
-          0,
-          r,
-          r,
-          0,
-          Math.PI * 2,
-          false,
-          0
-        )
-          .getPoints(150)
-          .map((p) => new THREE.Vector3(p.x, 0, p.y));
-        return (
-          <Line
-            key={r}
-            points={points}
-            color="#6b7c99"
-            lineWidth={0.8}
-            transparent
-            opacity={0.25}
-          />
-        );
-      })}
-    </group>
-  );
-}
-
-const Planet = forwardRef<THREE.Group, PlanetProps>(function Planet(
-  { cfg, onPick, paused = false },
-  ref
-) {
-  const groupRef = useRef<THREE.Group>(null!);
-  const meshRef = useRef<THREE.Mesh>(null!);
-  const tex = TEXTURE_CONFIG[cfg.id];
-
-  const albedoMap = useTexture(tex.albedo);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (groupRef.current && meshRef.current) {
-        groupRef.current.userData.meshRef = meshRef.current;
-        groupRef.current.userData.id = cfg.id;
-        console.log(`Set up refs for planet: ${cfg.id}`);
-      } else {
-        console.warn(`Refs not ready for planet: ${cfg.id}`);
-      }
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, [cfg.id]);
-
-  useFrame((_, delta) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y += 0.3 * delta;
-    }
-
-    if (!paused && groupRef.current) {
-      groupRef.current.rotation.y += cfg.orbitSpeed * delta;
-    }
-  });
-
-  function handleClick(e: ThreeEvent<MouseEvent>) {
-    e.stopPropagation();
-    const pos = new THREE.Vector3();
-    meshRef.current.getWorldPosition(pos);
-    onPick(cfg.id, pos);
-  }
-
-  return (
-    <group
-      ref={(node: any) => {
-        groupRef.current = node;
-        if (typeof ref === "function") ref(node);
-        else if (ref) (ref as any).current = node;
-      }}
-      rotation={[0, cfg.angle, 0]}
-    >
-      <group position={[cfg.radius, 0, 0]}>
-        <mesh ref={meshRef} onClick={handleClick}>
-          <sphereGeometry args={[cfg.size, 64, 64]} />
-          <meshStandardMaterial
-            map={albedoMap}
-            roughness={0.8}
-            metalness={0.1}
-          />
-        </mesh>
-
-        <mesh scale={1.02}>
-          <sphereGeometry args={[cfg.size, 32, 32]} />
-          <meshBasicMaterial
-            color={tex.color}
-            transparent
-            opacity={0.1}
-            side={THREE.BackSide}
-          />
-        </mesh>
-
-        <Html
-          center
-          style={{ pointerEvents: "none" }}
-          position={[0, cfg.size + 0.4, 0]}
-        >
-          <div className="text-white font-bold text-xs whitespace-nowrap drop-shadow-lg">
-            {tex.label}
-          </div>
-        </Html>
-      </group>
-    </group>
-  );
-});
-
-function framedLookAt(
-  cam: THREE.PerspectiveCamera,
-  target: THREE.Vector3,
-  ndcX = +0.35,
-  ndcY = -0.25
-) {
-  const dir = new THREE.Vector3().subVectors(target, cam.position).normalize();
-  const right = new THREE.Vector3().crossVectors(dir, cam.up).normalize();
-  const up = new THREE.Vector3().crossVectors(right, dir).normalize();
-  const dist = cam.position.distanceTo(target);
-  const halfH = Math.tan(THREE.MathUtils.degToRad(cam.fov) * 0.5) * dist;
-  const halfW = halfH * cam.aspect;
-
-  const worldOffset = new THREE.Vector3()
-    .addScaledVector(right, ndcX * halfW)
-    .addScaledVector(up, ndcY * halfH);
-
-  cam.lookAt(new THREE.Vector3().copy(target).add(worldOffset));
-}
-
-function getWorldRadius(mesh: THREE.Mesh) {
-  const geo = mesh.geometry as THREE.BufferGeometry;
-  if (!geo.boundingSphere) geo.computeBoundingSphere();
-  const r = geo.boundingSphere?.radius ?? 1;
-
-  const s = new THREE.Vector3();
-  mesh.getWorldScale(s);
-  return r * Math.max(s.x, s.y, s.z);
-}
-
-function distanceForFrame(
-  radius: number,
-  cam: THREE.PerspectiveCamera,
-  fill = 0.6
-) {
-  const fovY = THREE.MathUtils.degToRad(cam.fov);
-  const fovX = 2 * Math.atan(Math.tan(fovY / 2) * cam.aspect);
-
-  const dY = radius / (fill * Math.tan(fovY / 2));
-  const dX = radius / (fill * Math.tan(fovX / 2));
-  return Math.max(dX, dY);
-}
-
-function CameraRig({
-  mode,
-  target,
-  setMode,
-  currentPlanetRef,
-}: CameraRigProps) {
-  const { camera } = useThree();
-  const tempPos = useRef(new THREE.Vector3());
-  const lookTarget = useRef(new THREE.Vector3());
-  const initialTarget = useRef<THREE.Vector3 | null>(null);
-  const warpStartTime = useRef<number | null>(null);
-  const hasSetPanelMode = useRef(false);
-
-  useFrame((state, delta) => {
-    const lerpSpeed = 1 - Math.pow(PERFORMANCE.CAMERA_LERP_SPEED, delta);
-
-    if (mode === "warping-to") {
-      if (warpStartTime.current === null) {
-        warpStartTime.current = state.clock.elapsedTime;
-        hasSetPanelMode.current = false;
-        console.log("Started warping to target");
-      }
-
-      if (target && !initialTarget.current) {
-        initialTarget.current = target.clone();
-        console.log("Initial target set:", initialTarget.current);
-      }
-
-      if (initialTarget.current) {
-        lookTarget.current.copy(initialTarget.current);
-      } else {
-        return;
-      }
-
-      const meshRef = currentPlanetRef?.current?.userData?.meshRef;
-      let desiredPos: THREE.Vector3;
-
-      if (meshRef) {
-        meshRef.getWorldPosition(lookTarget.current);
-        const r = getWorldRadius(meshRef);
-        const dist = distanceForFrame(
-          r,
-          camera as THREE.PerspectiveCamera,
-          0.58
-        );
-
-        const az = THREE.MathUtils.degToRad(35);
-        const el = THREE.MathUtils.degToRad(18);
-        const dir = new THREE.Vector3().setFromSpherical(
-          new THREE.Spherical(1, Math.PI / 2 - el, az)
-        );
-
-        desiredPos = tempPos.current
-          .copy(lookTarget.current)
-          .addScaledVector(dir, dist + r * 0.15);
-      } else {
-        desiredPos = tempPos.current
-          .copy(lookTarget.current)
-          .add(new THREE.Vector3(1.2, 1, 2.5));
-      }
-
-      camera.position.lerp(desiredPos, lerpSpeed);
-      framedLookAt(
-        camera as THREE.PerspectiveCamera,
-        lookTarget.current,
-        +0.32,
-        -0.18
-      );
-
-      const distance = camera.position.distanceTo(desiredPos);
-      const elapsed = state.clock.elapsedTime - (warpStartTime.current ?? 0);
-
-      if (!hasSetPanelMode.current && (distance < 0.08 || elapsed > 1.2)) {
-        console.log(
-          `Camera arrived! Distance: ${distance.toFixed(
-            3
-          )}, Elapsed: ${elapsed.toFixed(2)}s`
-        );
-        console.log("Switching to PANEL mode");
-        initialTarget.current = null;
-        warpStartTime.current = null;
-        hasSetPanelMode.current = true;
-        setMode("panel");
-      }
-    } else if (mode === "panel" && currentPlanetRef?.current) {
-      warpStartTime.current = null;
-      hasSetPanelMode.current = false;
-      const meshRef = currentPlanetRef.current.userData?.meshRef;
-      if (meshRef) {
-        meshRef.getWorldPosition(lookTarget.current);
-        const r = getWorldRadius(meshRef);
-        const dist = distanceForFrame(
-          r,
-          camera as THREE.PerspectiveCamera,
-          0.58
-        );
-
-        const az = THREE.MathUtils.degToRad(35);
-        const el = THREE.MathUtils.degToRad(18);
-        const dir = new THREE.Vector3().setFromSpherical(
-          new THREE.Spherical(1, Math.PI / 2 - el, az)
-        );
-
-        const desiredPos = tempPos.current
-          .copy(lookTarget.current)
-          .addScaledVector(dir, dist + r * 0.15);
-
-        camera.position.lerp(desiredPos, 0.03);
-        framedLookAt(
-          camera as THREE.PerspectiveCamera,
-          lookTarget.current,
-          +0.32,
-          -0.18
-        );
-      }
-    } else if (mode === "warping-back") {
-      initialTarget.current = null;
-      warpStartTime.current = null;
-      hasSetPanelMode.current = false;
-      const desiredPos = tempPos.current.set(0, 3, 11);
-      camera.position.lerp(desiredPos, lerpSpeed);
-      camera.lookAt(0, 0, 0);
-
-      const distance = camera.position.distanceTo(desiredPos);
-      if (distance < PERFORMANCE.CAMERA_POSITION_THRESHOLD) {
-        setMode("hub");
-      }
-    } else {
-      initialTarget.current = null;
-      warpStartTime.current = null;
-      hasSetPanelMode.current = false;
-    }
-  });
-
-  return null;
-}
-
-function ShowcasePanel({ id, onBack }: { id: SectionId; onBack: () => void }) {
-  console.log("ShowcasePanel rendering for:", id);
-
-  const content = SECTION_CONTENT[id];
-  const PanelComponent = PANEL_COMPONENTS[id];
-
-  if (!content) {
-    console.warn(`SECTION_CONTENT missing for id: ${id}`);
-    return null;
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-end p-4 md:p-6">
-      <div className="w-full md:w-[45%] max-w-lg pointer-events-auto">
-        <div className="showcase-panel-content bg-slate-900/95 backdrop-blur-xl rounded-2xl p-6 md:p-8 border border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto">
-          <PanelComponent content={content} onClose={onBack} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LoadingScreen({ onComplete }: { onComplete?: () => void }) {
-  const { progress } = useProgress();
-
-  useEffect(() => {
-    console.log("LoadingScreen progress:", progress);
-    if (progress === 100 && onComplete) {
-      console.log("Loading complete! Calling onComplete in 300ms...");
-      const timer = setTimeout(() => {
-        console.log("Calling onComplete now!");
-        onComplete();
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [progress, onComplete]);
-
-  return (
-    <Html center>
-      <div className="flex flex-col items-center gap-6 text-white">
-        <div className="relative">
-          <img
-            src="/textures/syslogo.svg"
-            alt="SYSCO Logo"
-            className="h-16 md:h-20 w-auto animate-pulse"
-          />
-        </div>
-        <div className="flex flex-row items-center">
-          <p className="text-lg md:text-xl font-semibold">Ачаалж байна...</p>
-        </div>
-      </div>
-    </Html>
-  );
-}
-
-function WebGLNotSupported() {
-  return (
-    <div className="h-screen w-screen flex items-center justify-center bg-[#060a18] text-white">
-      <div className="max-w-md text-center p-8">
-        <h1 className="text-3xl font-bold mb-4">Дэмжигдэхгүй байна</h1>
-        <p className="text-gray-400 mb-6">
-          Таны хөтөч WebGL-г дэмжихгүй байна. Энэ хуудсыг үзэхийн тулд орчин
-          үеийн хөтөч ашиглана уу.
-        </p>
-        <a
-          href="https://get.webgl.org/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block px-6 py-3 bg-cyan-500 hover:bg-cyan-400 rounded-lg font-semibold transition"
-        >
-          Дэлгэрэнгүй мэдээлэл
-        </a>
-      </div>
-    </div>
-  );
-}
-
-function TopBar({
-  current,
-  mode,
-  onBack,
-  onNavClick,
-}: {
-  current: SectionId | null;
-  mode: Mode;
-  onBack: () => void;
-  onNavClick: (id: SectionId) => void;
-}) {
-  const isBusy = mode === "warping-to" || mode === "warping-back";
-
-  return (
-    <nav className="fixed top-0 left-0 right-0 z-30 pointer-events-none">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-linear-to-b from-black/50 via-black/20 to-transparent" />
-
-      <div className="relative mx-auto max-w-7xl px-4 md:px-6">
-        <div className="flex items-center justify-between py-4 pointer-events-auto">
-          <button
-            className="shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={onBack}
-          >
-            <img
-              src="/textures/syslogo.svg"
-              alt="Logo"
-              className="h-8 md:h-16 w-auto"
-            />
-          </button>
-
-          <ul className="hidden md:flex items-center gap-6 lg:gap-8 ml-auto">
-            {ORDERED_SECTIONS.map((id) => {
-              const label = TEXTURE_CONFIG[id].label;
-              const active = current === id;
-
-              return (
-                <li key={id}>
-                  <button
-                    onClick={() => onNavClick(id)}
-                    disabled={isBusy}
-                    className={`relative cursor-pointer text-sm font-semibold tracking-wider uppercase transition-all duration-200 group ${
-                      active
-                        ? "text-cyan-400"
-                        : "text-white/70 hover:text-white"
-                    } ${isBusy ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    {label}
-                    <span
-                      className={`absolute left-0 right-0 -bottom-1 h-0.5 bg-cyan-400 rounded-full transition-all duration-200 ${
-                        active
-                          ? "opacity-100 shadow-[0_0_8px_rgba(34,211,238,0.6)]"
-                          : "opacity-0 scale-x-0 group-hover:opacity-100 group-hover:scale-x-100"
-                      }`}
-                    />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-
-          <div className="md:hidden flex-1 ml-4 overflow-x-auto scrollbar-hide">
-            <div className="flex items-center gap-4">
-              {ORDERED_SECTIONS.map((id) => {
-                const label = TEXTURE_CONFIG[id].label;
-                const active = current === id;
-
-                return (
-                  <button
-                    key={id}
-                    onClick={() => onNavClick(id)}
-                    disabled={isBusy}
-                    className={`text-xs font-semibold uppercase tracking-wide whitespace-nowrap transition-colors ${
-                      active
-                        ? "text-cyan-400"
-                        : "text-white/70 hover:text-white"
-                    } ${isBusy ? "opacity-50" : ""}`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-    </nav>
-  );
-}
+import {
+  GalaxyScene,
+  TopBar,
+  ShowcasePanel,
+  ProgressIndicator,
+  WebGLNotSupported,
+} from "./galaxy";
 
 export default function GalaxyHero() {
   const [mode, setMode] = useState<Mode>("hub");
@@ -585,23 +32,16 @@ export default function GalaxyHero() {
   const touchStartTimeRef = useRef<number | null>(null);
 
   const planetRefsMap = useMemo(() => {
-    return PLANET_CONFIGS.reduce((acc, p) => {
-      acc[p.id as SectionId] = React.createRef<THREE.Group | null>();
-      return acc;
-    }, {} as Record<SectionId, React.RefObject<THREE.Group | null>>);
+    const refs = {} as Record<SectionId, React.RefObject<THREE.Group | null>>;
+    PLANET_CONFIGS.forEach((p) => {
+      refs[p.id as SectionId] = React.createRef<THREE.Group | null>();
+    });
+    return refs;
   }, []);
 
   useEffect(() => {
-    console.log("isLoaded state changed to:", isLoaded);
-  }, [isLoaded]);
-
-  useEffect(() => {
     if (isLoading) {
-      console.log("Setting timeout to check if Suspense triggers...");
       const timer = setTimeout(() => {
-        console.log(
-          "Timeout fired - Suspense never triggered, setting isLoaded to true"
-        );
         setIsLoaded(true);
         setIsLoading(false);
       }, 500);
@@ -616,35 +56,10 @@ export default function GalaxyHero() {
         useTexture.preload(tex.albedo);
       }
     });
-    useTexture.preload("/textures/8k_sun.jpg");
+    useTexture.preload("/textures/8k_sun.webp");
   }, []);
 
-  useEffect(() => {
-    console.log("State changed - Mode:", mode, "Current:", current);
-  }, [mode, current]);
-
-  useEffect(() => {
-    console.log("Validating planet data...");
-    console.log("ORDERED_SECTIONS:", ORDERED_SECTIONS);
-    console.log("Total sections:", ORDERED_SECTIONS.length);
-
-    PLANET_CONFIGS.forEach((planet) => {
-      const hasContent = !!SECTION_CONTENT[planet.id];
-      const hasTexture = !!TEXTURE_CONFIG[planet.id];
-      const hasRef = !!planetRefsMap[planet.id];
-      const status = hasContent && hasTexture && hasRef ? "OK" : "MISSING";
-      console.log(
-        `${status} ${planet.id}:`,
-        `content=${hasContent ? "yes" : "no"}`,
-        `texture=${hasTexture ? "yes" : "no"}`,
-        `ref=${hasRef ? "yes" : "no"}`
-      );
-    });
-  }, [planetRefsMap]);
-
   const onPick = React.useCallback((id: SectionId, worldPos: THREE.Vector3) => {
-    console.log("Planet picked:", id);
-    console.log("World position:", worldPos);
     setCurrent(id);
     setTarget(worldPos);
     setMode("warping-to");
@@ -663,56 +78,40 @@ export default function GalaxyHero() {
 
   const navigateToSection = React.useCallback(
     (index: number) => {
-      console.log("navigateToSection called with index:", index);
-      console.log("isScrollingRef.current:", isScrollingRef.current);
-      console.log("Current mode:", mode);
-
-      if (isScrollingRef.current) {
-        console.log("Blocked - already scrolling");
-        return;
-      }
+      if (isScrollingRef.current) return;
 
       isScrollingRef.current = true;
       setCurrentSection(index);
 
       if (index >= 0 && index < ORDERED_SECTIONS.length) {
         const sectionId = ORDERED_SECTIONS[index];
-        console.log("Target section ID:", sectionId);
         const planetRef = planetRefsMap[sectionId];
 
         if (planetRef?.current) {
           const meshRef = planetRef.current.userData?.meshRef;
-          console.log("Mesh ref found:", !!meshRef);
 
           if (meshRef) {
             const pos = new THREE.Vector3();
             meshRef.getWorldPosition(pos);
-            console.log("Position:", pos);
             onPick(sectionId, pos);
           } else {
-            console.error("No meshRef for section:", sectionId);
             isScrollingRef.current = false;
           }
         } else {
-          console.error("No planet ref for section:", sectionId);
           isScrollingRef.current = false;
         }
       }
 
       setTimeout(() => {
         isScrollingRef.current = false;
-        console.log("Scroll lock released");
       }, 1200);
     },
-    [onPick, planetRefsMap, mode]
+    [onPick, planetRefsMap]
   );
 
   const onNavClick = React.useCallback(
     (id: SectionId) => {
-      console.log("Nav clicked:", id, "| Mode:", mode, "| Current:", current);
-
       if (mode === "warping-to" || mode === "warping-back") {
-        console.log("Currently warping - queuing navigation");
         setTimeout(() => {
           const planetRef = planetRefsMap[id];
           if (planetRef?.current) {
@@ -730,45 +129,27 @@ export default function GalaxyHero() {
       }
 
       if (current === id && mode === "panel") {
-        console.log("Already viewing this planet, going back to hub");
         onBack();
         return;
       }
 
       requestAnimationFrame(() => {
         const planetRef = planetRefsMap[id];
-        console.log(
-          "Planet ref for",
-          id,
-          ":",
-          planetRef?.current ? "found" : "missing"
-        );
-
         if (planetRef?.current) {
           const meshRef = planetRef.current.userData?.meshRef;
-          console.log("Mesh ref:", meshRef ? "found" : "missing");
-
           if (meshRef) {
             const pos = new THREE.Vector3();
             meshRef.getWorldPosition(pos);
-            console.log("Navigating to position:", pos);
             onPick(id, pos);
             const sectionIndex = ORDERED_SECTIONS.indexOf(id);
             if (sectionIndex !== -1) {
-              console.log("Setting current section to:", sectionIndex);
               setCurrentSection(sectionIndex);
             }
-          } else {
-            console.error("No meshRef found for planet:", id);
-            console.log("Group userData:", planetRef.current.userData);
           }
-        } else {
-          console.error("No planet ref found for:", id);
-          console.log("Available refs:", Object.keys(planetRefsMap));
         }
       });
     },
-    [mode, current, onBack, onPick, planetRefsMap, setCurrentSection]
+    [mode, current, onBack, onPick, planetRefsMap]
   );
 
   useEffect(() => {
@@ -810,49 +191,24 @@ export default function GalaxyHero() {
 
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      console.log("Wheel event - deltaY:", e.deltaY);
-      console.log(
-        "Current state - isScrolling:",
-        isScrollingRef.current,
-        "mode:",
-        mode,
-        "currentSection:",
-        currentSection
-      );
-
       if (
         isScrollingRef.current ||
         mode === "warping-to" ||
         mode === "warping-back"
       ) {
-        console.log(
-          "Scroll blocked - isScrolling:",
-          isScrollingRef.current,
-          "mode:",
-          mode
-        );
         return;
       }
 
       if (Math.abs(e.deltaY) < PERFORMANCE.SCROLL_THRESHOLD) {
-        console.log(
-          "Scroll too small, threshold:",
-          PERFORMANCE.SCROLL_THRESHOLD
-        );
         return;
       }
 
       e.preventDefault();
 
       if (e.deltaY > 0 && currentSection < ORDERED_SECTIONS.length - 1) {
-        console.log("Scrolling DOWN to section:", currentSection + 1);
         navigateToSection(currentSection + 1);
       } else if (e.deltaY < 0 && currentSection > -1) {
-        console.log("Scrolling UP to section:", currentSection - 1);
         if (currentSection === -1 || currentSection === 0) {
-          console.log(
-            "Already at hub view or first planet - going back to hub"
-          );
           onBack();
         } else {
           navigateToSection(currentSection - 1);
@@ -861,39 +217,28 @@ export default function GalaxyHero() {
         e.deltaY > 0 &&
         currentSection === ORDERED_SECTIONS.length - 1
       ) {
-        console.log("At last planet - going back to hub");
         onBack();
-      } else {
-        console.log(
-          "At boundary - deltaY:",
-          e.deltaY,
-          "currentSection:",
-          currentSection,
-          "max:",
-          ORDERED_SECTIONS.length - 1
-        );
       }
     };
 
     window.addEventListener("wheel", handleWheel, { passive: false });
     return () => window.removeEventListener("wheel", handleWheel);
-  }, [currentSection, mode, navigateToSection]);
+  }, [currentSection, mode, navigateToSection, onBack]);
 
   useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
       const target = e.target as HTMLElement;
-      if (target.closest(".showcase-panel-content")) {
+      if (target.closest(".showcase-panel-content") || target.closest("nav")) {
         return;
       }
 
       touchStartYRef.current = e.touches[0].clientY;
       touchStartTimeRef.current = Date.now();
-      console.log("Touch start - Y:", touchStartYRef.current);
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       const target = e.target as HTMLElement;
-      if (target.closest(".showcase-panel-content")) {
+      if (target.closest(".showcase-panel-content") || target.closest("nav")) {
         return;
       }
 
@@ -902,7 +247,7 @@ export default function GalaxyHero() {
 
     const handleTouchEnd = (e: TouchEvent) => {
       const target = e.target as HTMLElement;
-      if (target.closest(".showcase-panel-content")) {
+      if (target.closest(".showcase-panel-content") || target.closest("nav")) {
         return;
       }
 
@@ -918,7 +263,6 @@ export default function GalaxyHero() {
         mode === "warping-to" ||
         mode === "warping-back"
       ) {
-        console.log("Touch blocked - busy");
         touchStartYRef.current = null;
         touchStartTimeRef.current = null;
         return;
@@ -929,27 +273,19 @@ export default function GalaxyHero() {
       const deltaTime = Date.now() - touchStartTimeRef.current;
       const velocity = Math.abs(deltaY) / deltaTime;
 
-      console.log("Touch end - deltaY:", deltaY, "velocity:", velocity);
-
       const SWIPE_THRESHOLD = 50;
       const VELOCITY_THRESHOLD = 0.5;
 
       if (Math.abs(deltaY) > SWIPE_THRESHOLD || velocity > VELOCITY_THRESHOLD) {
         if (deltaY > 0 && currentSection < ORDERED_SECTIONS.length - 1) {
-          console.log("Swipe UP - going to next planet");
           navigateToSection(currentSection + 1);
         } else if (
           deltaY > 0 &&
           currentSection === ORDERED_SECTIONS.length - 1
         ) {
-          console.log("At last planet - going back to hub");
           onBack();
         } else if (deltaY < 0 && currentSection > -1) {
-          console.log("Swipe DOWN - going to previous planet or hub");
           if (currentSection === -1 || currentSection === 0) {
-            console.log(
-              "Already at hub view or first planet - going back to hub"
-            );
             onBack();
           } else {
             navigateToSection(currentSection - 1);
@@ -961,7 +297,9 @@ export default function GalaxyHero() {
       touchStartTimeRef.current = null;
     };
 
-    window.addEventListener("touchstart", handleTouchStart, { passive: false });
+    window.addEventListener("touchstart", handleTouchStart, {
+      passive: false,
+    });
     window.addEventListener("touchmove", handleTouchMove, { passive: false });
     window.addEventListener("touchend", handleTouchEnd, { passive: false });
 
@@ -970,13 +308,37 @@ export default function GalaxyHero() {
       window.removeEventListener("touchmove", handleTouchMove);
       window.removeEventListener("touchend", handleTouchEnd);
     };
-  }, [currentSection, mode, navigateToSection]);
+  }, [currentSection, mode, navigateToSection, onBack]);
 
   if (!webglSupported) return <WebGLNotSupported />;
 
   return (
     <div className="h-screen w-screen overflow-hidden text-white relative">
-      <div className="galaxy-bg">
+      <div
+        className="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {mode === "panel" &&
+          current &&
+          `Viewing ${TEXTURE_CONFIG[current]?.label}`}
+        {mode === "hub" &&
+          "Solar system view. Use arrow keys to navigate between planets."}
+      </div>
+
+      <div className="sr-only">
+        <p>Keyboard shortcuts:</p>
+        <ul>
+          <li>Arrow Down: Next section</li>
+          <li>Arrow Up: Previous section</li>
+          <li>Escape: Return to home</li>
+        </ul>
+      </div>
+
+      <div
+        className={`galaxy-bg ${isLoaded ? "stars-visible" : "stars-hidden"}`}
+      >
         <div className="stars-layer" />
         <div className="glow-blue" />
         <div className="glow-magenta" />
@@ -984,77 +346,20 @@ export default function GalaxyHero() {
       </div>
 
       <div className="absolute inset-0" style={{ zIndex: 1 }}>
-        <Canvas
-          camera={{ position: [0, 3, 11], fov: 50 }}
-          dpr={[1, reducedMotion ? 1 : 1.5]}
-          shadows={false}
-          gl={{
-            antialias: !reducedMotion,
-            alpha: true,
-            powerPreference: "high-performance",
-            stencil: false,
-            depth: true,
+        <GalaxyScene
+          mode={mode}
+          target={target}
+          setMode={setMode}
+          currentPlanetRef={current ? planetRefsMap[current] : null}
+          onPick={onPick}
+          onBack={onBack}
+          planetRefsMap={planetRefsMap}
+          reducedMotion={reducedMotion}
+          onLoadingComplete={() => {
+            setIsLoaded(true);
+            setIsLoading(false);
           }}
-          onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}
-          frameloop="always"
-          performance={{ min: 0.5 }}
-        >
-          <Suspense
-            fallback={
-              <LoadingScreen
-                onComplete={() => {
-                  console.log("LoadingScreen onComplete called!");
-                  setIsLoaded(true);
-                  setIsLoading(false);
-                }}
-              />
-            }
-          >
-            <ambientLight intensity={0.3} color="#b8d4ff" />
-
-            <pointLight
-              position={[0, 0, 0]}
-              intensity={10}
-              color="#ffcf6b"
-              distance={30}
-              decay={1.5}
-            />
-
-            <pointLight
-              position={[0, 0, 0]}
-              intensity={10}
-              color="#ffa940"
-              distance={35}
-              decay={1.3}
-            />
-
-            <group>
-              <Sun onClick={onBack} />
-              <OrbitRings />
-              {PLANET_CONFIGS.map((p) => (
-                <Planet
-                  key={p.id}
-                  ref={planetRefsMap[p.id] as any}
-                  cfg={p}
-                  onPick={onPick}
-                  paused={mode !== "hub"}
-                />
-              ))}
-            </group>
-            <EffectComposer autoClear={false}>
-              <Bloom intensity={0.5} luminanceThreshold={0.2} />
-              <Vignette eskil={false} offset={0.1} darkness={0.5} />
-            </EffectComposer>
-            <CameraRig
-              mode={mode}
-              target={target}
-              setMode={setMode}
-              currentPlanetRef={
-                (current ? planetRefsMap[current] : null) as any
-              }
-            />
-          </Suspense>
-        </Canvas>
+        />
       </div>
 
       {mode === "panel" && current && (
@@ -1068,61 +373,13 @@ export default function GalaxyHero() {
         onNavClick={onNavClick}
       />
 
-      {false && (
-        <div className="absolute top-20 left-4 bg-black/80 text-white p-4 rounded-lg text-xs font-mono z-50">
-          <div className="font-bold mb-2">Debug Info:</div>
-          <div>
-            Mode: <span className="text-cyan-400">{mode}</span>
-          </div>
-          <div>
-            Current:{" "}
-            <span className="text-yellow-400">{current || "null"}</span>
-          </div>
-          <div>
-            Target:{" "}
-            <span className="text-green-400">{target ? "set" : "null"}</span>
-          </div>
-          <div>
-            Section: <span className="text-purple-400">{currentSection}</span>
-          </div>
-          <div className="mt-2 text-[10px] text-gray-400">
-            Panel should render: {mode === "panel" && current ? "YES" : "NO"}
-          </div>
-          <div className="mt-3 pt-3 border-t border-gray-700">
-            <button
-              onClick={() => {
-                const planets = ORDERED_SECTIONS;
-                let idx = 0;
-                const testNext = () => {
-                  if (idx >= planets.length) {
-                    console.log("All planets tested!");
-                    return;
-                  }
-                  const planetId = planets[idx];
-                  console.log(
-                    `\nTesting planet ${idx + 1}/${planets.length}: ${planetId}`
-                  );
-                  const ref = planetRefsMap[planetId];
-                  if (ref?.current) {
-                    const meshRef = ref.current.userData?.meshRef;
-                    if (meshRef) {
-                      const pos = new THREE.Vector3();
-                      meshRef.getWorldPosition(pos);
-                      onPick(planetId, pos);
-                      idx++;
-                      setTimeout(testNext, 3000);
-                    }
-                  }
-                };
-                testNext();
-              }}
-              className="w-full px-2 py-1 bg-purple-600 hover:bg-purple-500 rounded text-[10px]"
-            >
-              Test All Planets
-            </button>
-          </div>
-        </div>
-      )}
+      <ProgressIndicator
+        currentSection={currentSection}
+        isLoaded={isLoaded}
+        mode={mode}
+        onNavigate={navigateToSection}
+        isScrolling={isScrollingRef.current}
+      />
 
       {isLoaded && (
         <div className="absolute bottom-4 left-4 md:hidden text-xs text-gray-400 bg-slate-900/70 backdrop-blur-sm px-3 py-2 rounded-lg border border-white/10">
@@ -1130,107 +387,56 @@ export default function GalaxyHero() {
         </div>
       )}
 
-      {isLoaded && (
-        <div className="absolute z-30 bottom-6 md:bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 md:gap-3">
-          <div className="flex items-center gap-1.5 md:gap-2 bg-slate-900/70 px-3 md:px-4 py-2 md:py-3 rounded-full backdrop-blur-sm border border-white/10">
-            {ORDERED_SECTIONS.map((section, index) => {
-              const planet = TEXTURE_CONFIG[section];
-              const isActive = index === currentSection;
-              const isPast = index < currentSection;
-
-              return (
-                <button
-                  key={section}
-                  onClick={() => {
-                    if (index !== currentSection) {
-                      navigateToSection(index);
-                    }
-                  }}
-                  className="relative flex flex-col items-center pointer-events-auto cursor-pointer group transition-transform hover:scale-110 active:scale-95"
-                  disabled={
-                    isScrollingRef.current ||
-                    mode === "warping-to" ||
-                    mode === "warping-back"
-                  }
-                >
-                  <div
-                    className={`rounded-full transition-all duration-300 ${
-                      isActive
-                        ? "w-3 h-3 md:w-4 md:h-4 ring-1 md:ring-2 ring-white/50 ring-offset-1 md:ring-offset-2 ring-offset-slate-900/50"
-                        : "w-2 h-2 md:w-2.5 md:h-2.5 group-hover:w-2.5 group-hover:h-2.5 md:group-hover:w-3 md:group-hover:h-3"
-                    }`}
-                    style={{
-                      backgroundColor: planet.color,
-                      opacity:
-                        isPast || currentSection === -1
-                          ? 0.6
-                          : isActive
-                          ? 1
-                          : 0.3,
-                      boxShadow: isActive
-                        ? `0 0 8px ${planet.color}, 0 0 16px ${planet.color}40`
-                        : "none",
-                    }}
-                  />
-                  {isActive && (
-                    <div
-                      className="absolute -bottom-5 md:-bottom-6 text-[10px] md:text-xs font-medium whitespace-nowrap pointer-events-none"
-                      style={{ color: planet.color }}
-                    >
-                      {planet.label}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          {mode === "hub" && currentSection < ORDERED_SECTIONS.length - 1 && (
-            <>
-              <div className="hidden md:flex flex-col items-center animate-bounce mt-2 pointer-events-none">
-                <div className="text-white/50 text-xs mb-1">Доош гүйлгэх</div>
-                <svg
-                  className="w-5 h-5 text-white/50"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                  />
-                </svg>
-              </div>
-              <div className="md:hidden flex flex-col items-center animate-bounce pointer-events-none">
-                <div className="text-white/50 text-[10px] mb-1">Swipe</div>
-                <svg
-                  className="w-4 h-4 text-white/50"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                  />
-                </svg>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
       <style jsx global>{`
-        /* hide horizontal scrollbar for the mobile row, without breaking accessibility */
         .scrollbar-hide {
           -ms-overflow-style: none;
           scrollbar-width: none;
         }
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        .animate-slideIn {
+          animation: slideIn 0.4s ease-out;
+        }
+
+        @keyframes menuItem {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        .animate-menuItem {
+          animation: menuItem 0.3s ease-out both;
         }
       `}</style>
     </div>

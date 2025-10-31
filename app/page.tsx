@@ -1,5 +1,10 @@
 import GalaxyHero from "@/app/components/GalaxyHero";
+import ErrorBoundary from "@/app/components/ErrorBoundary";
 
 export default function Home() {
-  return <GalaxyHero />;
+  return (
+    <ErrorBoundary>
+      <GalaxyHero />
+    </ErrorBoundary>
+  );
 }
