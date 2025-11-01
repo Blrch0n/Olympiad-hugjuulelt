@@ -383,7 +383,7 @@ export default function GalaxyHero() {
 
       {isLoaded && (
         <div className="absolute bottom-4 left-4 md:hidden text-xs text-gray-400 bg-slate-900/70 backdrop-blur-sm px-3 py-2 rounded-lg border border-white/10">
-          Swipe up/down or tap planets
+          Дээш/доош чирж эсвэл гариг дээр товшино уу
         </div>
       )}
 

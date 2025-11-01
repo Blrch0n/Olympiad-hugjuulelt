@@ -88,7 +88,7 @@ export default function ProgressIndicator({
             </svg>
           </div>
           <div className="md:hidden flex flex-col items-center animate-bounce pointer-events-none">
-            <div className="text-white/50 text-[10px] mb-1">Swipe</div>
+            <div className="text-white/50 text-[10px] mb-1">Гүйлгэх</div>
             <svg
               className="w-4 h-4 text-white/50"
               fill="none"
