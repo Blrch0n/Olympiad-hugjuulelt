@@ -1,36 +1,70 @@
-# Security Measures
+# Security# Security Measures
 
-## Implemented Security Features
 
-### 1. HTTP Security Headers
 
-- **X-Frame-Options**: Prevents clickjacking attacks (SAMEORIGIN)
-- **X-Content-Type-Options**: Prevents MIME type sniffing (nosniff)
-- **X-XSS-Protection**: Enables browser XSS filtering
-- **Strict-Transport-Security**: Forces HTTPS connections
-- **Content-Security-Policy**: Restricts resource loading
+## Simple Security for Registration Website## Implemented Security Features
+
+
+
+This is a public olympiad registration website, so we keep security practical and simple.### 1. HTTP Security Headers
+
+
+
+### ✅ What We Protect Against- **X-Frame-Options**: Prevents clickjacking attacks (SAMEORIGIN)
+
+- **Clickjacking**: Can't embed your site in malicious iframes- **X-Content-Type-Options**: Prevents MIME type sniffing (nosniff)
+
+- **MIME Sniffing**: Browsers won't misinterpret file types- **X-XSS-Protection**: Enables browser XSS filtering
+
+- **XSS Attacks**: React automatically escapes content- **Strict-Transport-Security**: Forces HTTPS connections
+
+- **Version Exposure**: Server version hidden- **Content-Security-Policy**: Restricts resource loading
+
 - **Referrer-Policy**: Controls referrer information
-- **Permissions-Policy**: Disables unnecessary browser features
 
-### 2. Next.js Security
+### 📋 When You Add Registration Form- **Permissions-Policy**: Disables unnecessary browser features
 
-- **poweredByHeader**: Disabled to hide Next.js version
-- **Middleware**: Custom security middleware for request validation
 
-### 3. Best Practices Implemented
 
-✅ No `dangerouslySetInnerHTML` usage
+Add these protections:### 2. Next.js Security
+
+
+
+1. **Simple CAPTCHA** - Google reCAPTCHA to prevent bots- **poweredByHeader**: Disabled to hide Next.js version
+
+2. **Rate Limiting** - Max 3 submissions per IP per hour- **Middleware**: Custom security middleware for request validation
+
+3. **Input Validation** - Check email format, phone numbers, age
+
+4. **HTTPS** - Your hosting provider handles this automatically### 3. Best Practices Implemented
+
+
+
+### 🔧 Dependency Security✅ No `dangerouslySetInnerHTML` usage
+
 ✅ No `eval()` usage
-✅ No inline scripts
-✅ Input sanitization ready
-✅ HTTPS enforcement
-✅ Security.txt for responsible disclosure
 
-### 4. Additional Recommendations
+Check for vulnerabilities monthly:✅ No inline scripts
 
-#### For Production Deployment:
+```bash✅ Input sanitization ready
 
-1. **Environment Variables**
+pnpm audit✅ HTTPS enforcement
+
+```✅ Security.txt for responsible disclosure
+
+
+
+### 📧 Report Issues### 4. Additional Recommendations
+
+
+
+Found a security problem? Email: security@olympiad.mn#### For Production Deployment:
+
+
+
+---1. **Environment Variables**
+
+Last updated: 2025-11-01
 
    - Never commit `.env.local` or `.env`
    - Use environment variables for sensitive data
